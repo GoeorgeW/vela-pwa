@@ -42,8 +42,9 @@
   html,body{height:100%;margin:0;background:var(--bg);color:var(--txt);overflow:hidden;overscroll-behavior:none;
     font-family:-apple-system,BlinkMacSystemFont,"Trebuchet MS",Roboto,Ubuntu,"Helvetica Neue",sans-serif;font-size:13px;
     -webkit-tap-highlight-color:transparent;-webkit-text-size-adjust:100%}
-  #app{height:100vh;height:100dvh;display:flex;flex-direction:column;
-    padding:env(safe-area-inset-top) env(safe-area-inset-right) 0 env(safe-area-inset-left)}
+  #app{height:100vh;height:100dvh;display:flex;flex-direction:column;background:var(--panel);
+    padding:calc(env(safe-area-inset-top) * 1.5) env(safe-area-inset-right) 0 env(safe-area-inset-left)}
+  /* iOS 26 aplica un desenfoque que baja ~50 % más allá de la barra de estado: esa franja queda lisa y el contenido empieza debajo */
   /* Componentes en la capa 'components' para que las utilidades de Tailwind puedan sobrescribirlos */
   @layer components {
   button{font:inherit;color:inherit;background:none;border:0;cursor:pointer;padding:0}
@@ -95,6 +96,11 @@
   .lg-btn svg{width:14px;height:14px}
   @media (pointer:coarse){.lg-btn{width:30px;height:28px}.lg-btn svg{width:16px;height:16px}}
   #btnStar.on{color:#f7a600}#btnStar.on svg{fill:#f7a600}
+  /* Selector de timeframes */
+  .tf-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(68px,1fr));gap:8px;padding:2px 12px 8px}
+  .tf-chip{position:relative;height:44px;border-radius:10px;background:#2a2e39;font-size:15px;font-weight:500;color:var(--txt)}
+  .tf-chip:hover{background:#363a45}.tf-chip.on{background:#fff;color:#131722;font-weight:700}
+  .tf-star{position:absolute;top:2px;right:5px;font-size:11px;color:#4a4e59}.tf-star.on{color:#f7a600}
   /* Trades en vivo */
   #agChartWrap{height:46dvh;min-height:240px}
   @media (min-width:1024px){#agChartWrap{height:44%}}
@@ -139,11 +145,11 @@
 
   /* Modales / hojas */
   .modal{position:fixed;inset:0;z-index:50;display:none;align-items:flex-end;justify-content:center;background:rgba(0,0,0,.55);
-    padding-top:calc(env(safe-area-inset-top) + 8px)}   /* deja libre la barra de estado del iPhone */
+    padding-top:calc(env(safe-area-inset-top) * 1.5 + 4px)}   /* deja libre la barra de estado del iPhone */
   .modal.open{display:flex}
-  .sheet{width:100%;max-width:520px;max-height:calc(100dvh - env(safe-area-inset-top) - 8px);display:flex;flex-direction:column;background:var(--panel);
+  .sheet{width:100%;max-width:520px;max-height:calc(100dvh - env(safe-area-inset-top) * 1.5 - 4px);display:flex;flex-direction:column;background:var(--panel);
     border:1px solid var(--line);border-bottom:0;border-radius:14px 14px 0 0;padding-bottom:env(safe-area-inset-bottom);overflow:hidden}
-  .sheet.lg{max-width:860px;height:calc(100dvh - env(safe-area-inset-top) - 8px)}
+  .sheet.lg{max-width:860px;height:calc(100dvh - env(safe-area-inset-top) * 1.5 - 4px)}
   @media (min-width:640px){.modal{align-items:center}.sheet{border-bottom:1px solid var(--line);border-radius:10px}.sheet.lg{height:86dvh}}
   .sh-head{display:flex;align-items:center;gap:8px;padding:10px 12px;border-bottom:1px solid var(--line);font-size:15px;font-weight:600;flex:none}
   .sh-x{margin-left:auto;width:30px;height:30px;border-radius:6px;display:inline-flex;align-items:center;justify-content:center;color:var(--mute)}
@@ -285,6 +291,13 @@
   </main>
 </div>
 
+<!-- ===== Selector de timeframes ===== -->
+<div id="mTf" class="modal"><div class="sheet">
+  <div class="sh-head">Intervalo<button id="tfEdit" class="btn sm" style="margin-left:auto">Editar favoritos</button><button class="sh-x" style="margin-left:0" data-close>✕</button></div>
+  <div id="tfHint" class="px-3 pt-2 mute" style="font-size:12px;display:none">Toca un intervalo para añadirlo o quitarlo de la barra (★).</div>
+  <div id="tfList" class="overflow-y-auto pb-4"></div>
+</div></div>
+
 <!-- ===== Watchlist ===== -->
 <div id="mWl" class="modal"><div class="sheet lg">
   <div class="sh-head">
@@ -406,10 +419,32 @@ const isNum = x => typeof x === 'number' && Number.isFinite(x);
 
 const C = { up: '#089981', down: '#f23645', accent: '#2962ff', mute: '#787b86', line: '#2a2e39', bg: '#131722' };
 const PALETTE = ['#2962ff', '#f7a600', '#e040fb', '#00bcd4', '#ff6d00', '#4caf50', '#ff5252', '#b388ff', '#26c6da', '#ffd54f'];
+// Timeframes. api = intervalo nativo de Binance que se descarga; n = velas base por vela (1 = nativo).
+// Los no nativos se construyen agrupando velas base, como hace TradingView.
+const TF = (id, label, g, sec, api, n = 1, kind = 'fixed', m = 0) => ({ id, label, g, sec, api, n, kind, m });
 const TFS = [
-  { id: '1m', label: '1m', sec: 60 }, { id: '5m', label: '5m', sec: 300 }, { id: '15m', label: '15m', sec: 900 },
-  { id: '1h', label: '1h', sec: 3600 }, { id: '4h', label: '4h', sec: 14400 }, { id: '1d', label: '1D', sec: 86400 },
+  TF('1s', '1s', 'Segundos', 1, '1s'), TF('5s', '5s', 'Segundos', 5, '1s', 5), TF('10s', '10s', 'Segundos', 10, '1s', 10),
+  TF('15s', '15s', 'Segundos', 15, '1s', 15), TF('30s', '30s', 'Segundos', 30, '1s', 30), TF('45s', '45s', 'Segundos', 45, '1s', 45),
+  TF('1m', '1m', 'Minutos', 60, '1m'), TF('2m', '2m', 'Minutos', 120, '1m', 2), TF('3m', '3m', 'Minutos', 180, '3m'), TF('5m', '5m', 'Minutos', 300, '5m'),
+  TF('10m', '10m', 'Minutos', 600, '5m', 2), TF('15m', '15m', 'Minutos', 900, '15m'), TF('30m', '30m', 'Minutos', 1800, '30m'), TF('45m', '45m', 'Minutos', 2700, '15m', 3),
+  TF('1h', '1H', 'Horas', 3600, '1h'), TF('2h', '2H', 'Horas', 7200, '2h'), TF('3h', '3H', 'Horas', 10800, '1h', 3), TF('4h', '4H', 'Horas', 14400, '4h'),
+  TF('6h', '6H', 'Horas', 21600, '6h'), TF('8h', '8H', 'Horas', 28800, '8h'), TF('12h', '12H', 'Horas', 43200, '12h'),
+  TF('1d', '1D', 'Días', 86400, '1d'), TF('3d', '3D', 'Días', 259200, '3d'), TF('1w', '1W', 'Días', 604800, '1w', 1, 'week'),
+  TF('1M', '1M', 'Días', 2592000, '1M', 1, 'month', 1), TF('3M', '3M', 'Días', 7776000, '1M', 3, 'month', 3),
+  TF('6M', '6M', 'Días', 15552000, '1M', 6, 'month', 6), TF('12M', '12M', 'Días', 31536000, '1M', 12, 'month', 12),
 ];
+const tfDef = id => TFS.find(t => t.id === id) || TFS.find(t => t.id === '15m');
+const isNative = d => d.n === 1;
+// Inicio de la vela que contiene el instante t (segundos UTC)
+function bucketOf(d, t) {
+  if (d.kind === 'month') { const x = new Date(t * 1000); let mi = x.getUTCFullYear() * 12 + x.getUTCMonth(); mi -= mi % d.m; return Date.UTC(Math.floor(mi / 12), mi % 12, 1) / 1000; }
+  if (d.kind === 'week') { const off = 345600; return Math.floor((t - off) / 604800) * 604800 + off; }   // semanas desde el lunes
+  return Math.floor(t / d.sec) * d.sec;
+}
+function nextBucket(d, t, k = 1) {
+  if (d.kind === 'month') { const x = new Date(t * 1000); return Date.UTC(x.getUTCFullYear(), x.getUTCMonth() + k * d.m, 1) / 1000; }
+  return t + k * d.sec;
+}
 // Endpoints públicos de Binance (solo datos de mercado, sin API key). Se prueban en orden.
 const REST = ['https://data-api.binance.vision', 'https://api.binance.com', 'https://api1.binance.com'];
 const WSS  = ['wss://data-stream.binance.vision/ws', 'wss://stream.binance.com:9443/ws', 'wss://stream.binance.com:443/ws'];
@@ -448,7 +483,8 @@ try { saved = JSON.parse(localStorage.getItem(LS_KEY)) || {}; } catch (e) { save
 
 const S = {
   symbol: /^[A-Z0-9]{5,20}$/.test(saved.symbol || '') ? saved.symbol : 'BTCUSDT',
-  tf: TFS.some(t => t.id === saved.tf) ? saved.tf : '15m',
+  tf: TFS.some(t => t.id === saved.tf) ? saved.tf : '15m', tail: new Map(),
+  tfFav: Array.isArray(saved.tfFav) ? saved.tfFav.filter(x => TFS.some(t => t.id === x)) : ['1m', '15m', '1h', '4h', '1d'],
   bars: [], prices: {}, prec: 2, tz: 0, gen: 0, loading: true, noMore: false, loadingMore: false,
   inds: [], scripts: [], tk24: null, hover: null,
   panelOpen: typeof saved.panelOpen === 'boolean' ? saved.panelOpen : window.innerWidth >= 1024,
@@ -478,7 +514,7 @@ let saveTimer = 0;
 function saveNow() {
   try {
     localStorage.setItem(LS_KEY, JSON.stringify({
-      symbol: S.symbol, tf: S.tf, panelOpen: S.panelOpen, lgOpen: S.lgOpen || !!S.lgAuto, quote: S.quote,
+      symbol: S.symbol, tf: S.tf, tfFav: S.tfFav, panelOpen: S.panelOpen, lgOpen: S.lgOpen || !!S.lgAuto, quote: S.quote,
       inds: S.inds.map(i => ({ type: i.type, params: i.params, colors: i.colors, hidden: i.hidden })),
       scripts: S.scripts.map(s => ({ id: s.id, name: s.name, code: s.code, enabled: s.enabled })),
       wl: W, aggr: typeof A === 'undefined' ? saved.aggr : A, trade: T, form: { margin: $('#oMargin').value, lev: $('#oLev').value },
@@ -487,7 +523,7 @@ function saveNow() {
 }
 function save() { clearTimeout(saveTimer); saveTimer = setTimeout(saveNow, 250); }
 
-const tfSec = () => TFS.find(t => t.id === S.tf).sec;
+const curTf = () => tfDef(S.tf);
 const fmtP = (p, prec = S.prec) => fmtN(p, prec);
 const pf = () => ({ type: 'price', precision: S.prec, minMove: +Math.pow(10, -S.prec).toFixed(S.prec) });
 
@@ -909,7 +945,7 @@ const chartBar = b => ({ time: b.time + S.tz, open: b.open, high: b.high, low: b
 function timeAt(j) {
   if (j < 0) return null;
   const n = D.n; if (j < n) return D.time[j] + S.tz;
-  return D.time[n - 1] + S.tz + (j - n + 1) * tfSec();
+  return nextBucket(curTf(), D.time[n - 1], j - n + 1) + S.tz;
 }
 function toSeries(arr, shift, colorFn) {
   const out = []; let started = false;
@@ -1040,7 +1076,7 @@ function updateLegend() {
   if (!o) { o = S.bars[n - 1]; prev = S.bars[n - 2]; }
   const base = prev ? prev.close : o.open, ch = base ? (o.close - base) / base * 100 : 0, cls = o.close >= o.open ? 'up' : 'down';
   const cell = (k, v) => `<span><span class="mute">${k}</span><span class="${cls}">${fmtP(v)}</span></span>`;
-  el.lgMain.innerHTML = `<span class="mute hidden sm:inline">${esc(S.symbol)} · ${TFS.find(t => t.id === S.tf).label}</span>` +
+  el.lgMain.innerHTML = `<span class="mute hidden sm:inline">${esc(S.symbol)} · ${curTf().label}</span>` +
     cell('O', o.open) + cell('H', o.high) + cell('L', o.low) + cell('C', o.close) + `<span class="${ch >= 0 ? 'up' : 'down'}">${fmtPct(ch)}</span>`;
   if (!S.lgOpen) return;
   for (const row of el.lgInds.children) {
@@ -1084,6 +1120,28 @@ async function fetchKlines(sym, tf, endMs) {
   const j = await api(`/api/v3/klines?symbol=${sym}&interval=${tf}&limit=1000${endMs ? '&endTime=' + endMs : ''}`);
   if (!Array.isArray(j)) throw new Error('Respuesta no válida');
   return j.map(parseK);
+}
+// Velas del timeframe: nativas de Binance o construidas agrupando velas base (varias páginas si hace falta)
+async function fetchBars(sym, d, endMs) {
+  if (isNative(d)) { const k = await fetchKlines(sym, d.api, endMs); k.tail = new Map(); return k; }
+  const pages = d.kind === 'month' ? 1 : clamp(Math.ceil(600 * d.n / 1000), 1, 10);
+  let base = [], end = endMs, atStart = false;
+  for (let i = 0; i < pages; i++) {
+    const k = await fetchKlines(sym, d.api, end); if (!k.length) { atStart = true; break; }
+    base = k.concat(base); if (k.length < 1000) { atStart = true; break; } end = k[0].time * 1000 - 1;
+  }
+  const out = [];
+  for (const b of base) {
+    const t = bucketOf(d, b.time), l = out[out.length - 1];
+    if (l && l.time === t) { if (b.high > l.high) l.high = b.high; if (b.low < l.low) l.low = b.low; l.close = b.close; l.volume += b.volume; }
+    else out.push({ time: t, open: b.open, high: b.high, low: b.low, close: b.close, volume: b.volume, _f: b.time });
+  }
+  // la primera vela queda incompleta si no se llegó al inicio del historial (se completará al cargar más)
+  if (!atStart && out.length > 1 && out[0]._f !== out[0].time) out.shift();
+  for (const o of out) delete o._f;
+  const lt = out.length ? out[out.length - 1].time : null;
+  out.tail = new Map(base.filter(b => bucketOf(d, b.time) === lt).map(b => [b.time, b]));
+  return out;
 }
 async function fetchPrecision(sym) {
   try {
@@ -1136,7 +1194,7 @@ const Feed = {
   },
 };
 function updateSubs() {
-  const s = S.symbol.toLowerCase(), w = [`${s}@kline_${S.tf}`, `${s}@aggTrade`, `${s}@miniTicker`, 'btcusdt@miniTicker'];
+  const s = S.symbol.toLowerCase(), w = [`${s}@kline_${curTf().api}`, `${s}@aggTrade`, `${s}@miniTicker`, 'btcusdt@miniTicker'];
   for (const p of T.positions) if (p.symbol !== S.symbol) w.push(p.symbol.toLowerCase() + '@miniTicker');
   for (const x of wlCur().syms.slice(0, 100)) if (!S.known || S.known.has(x)) w.push(x.toLowerCase() + '@miniTicker');   // watchlist siempre en vivo
   if (S.symOpen) w.push('!miniTicker@arr');
@@ -1156,15 +1214,29 @@ function onMini(t) {
   if (t.s === S.symbol) { S.tk24 = { o: +t.o, h: +t.h, l: +t.l, q: +t.q }; if (!S.loading && S.prices[t.s] == null) setPx(t.s, c); touch(); }
   else if (T.positions.some(p => p.symbol === t.s)) setPx(t.s, c);
 }
+function tailBar(tail, time) {   // vela agregada a partir de sus velas base
+  const bs = [...tail.values()].sort((a, b) => a.time - b.time); if (!bs.length) return null;
+  const o = { time, open: bs[0].open, high: -Infinity, low: Infinity, close: bs[bs.length - 1].close, volume: 0 };
+  for (const b of bs) { if (b.high > o.high) o.high = b.high; if (b.low < o.low) o.low = b.low; o.volume += b.volume; }
+  return o;
+}
 function onKline(m) {
-  const k = m.k; if (S.loading || m.s !== S.symbol || k.i !== S.tf) return;
+  const k = m.k, d = curTf(); if (S.loading || m.s !== S.symbol || k.i !== d.api) return;
   const bars = S.bars, n = bars.length; if (!n) return;
-  const b = { time: Math.floor(k.t / 1000), open: +k.o, high: +k.h, low: +k.l, close: +k.c, volume: +k.v }, last = bars[n - 1];
-  if (b.time === last.time) bars[n - 1] = b;
-  else if (b.time > last.time) {
-    if (b.time - last.time > tfSec()) { resync(); return; }   // hueco: se recarga el tramo reciente
+  const kb = { time: Math.floor(k.t / 1000), open: +k.o, high: +k.h, low: +k.l, close: +k.c, volume: +k.v }, last = bars[n - 1];
+  const t = bucketOf(d, kb.time);
+  let b = kb;
+  if (!isNative(d)) {   // timeframe construido: se acumulan las velas base de la vela actual
+    if (t === last.time) { S.tail.set(kb.time, kb); b = tailBar(S.tail, t); }
+    else if (t > last.time) { S.tail = new Map([[kb.time, kb]]); b = Object.assign({}, kb, { time: t }); }
+    else if (n > 1 && t === bars[n - 2].time) { const pb = bars[n - 2]; pb.close = kb.close; pb.high = Math.max(pb.high, kb.high); pb.low = Math.min(pb.low, kb.low); try { candle.update(chartBar(pb), true); } catch (e) {} S.calcDirty = true; touch(); return; }
+    else return;
+  }
+  if (t === last.time) { if (isNative(d)) bars[n - 1] = b; else { last.open = b.open; last.high = Math.max(b.high, last.high); last.low = Math.min(b.low, last.low); last.close = b.close; last.volume = b.volume; } }
+  else if (t > last.time) {
+    if (t > nextBucket(d, last.time)) { resync(); return; }   // hueco: se recarga el tramo reciente
     candle.update(chartBar(last)); bars.push(b); S.newBar = true;
-  } else if (n > 1 && b.time === bars[n - 2].time) {            // cierre definitivo de la vela anterior
+  } else if (n > 1 && t === bars[n - 2].time) {            // cierre definitivo de la vela anterior
     bars[n - 2] = b; try { candle.update(chartBar(b), true); } catch (e) {}
     S.calcDirty = true; touch(); return;
   } else return;
@@ -1174,11 +1246,12 @@ function onKline(m) {
 function onTrade(p, ms) {
   if (S.loading || !isNum(p)) return;
   const bars = S.bars, n = bars.length; if (!n) return;
-  const sec = tfSec(), bt = Math.floor(ms / 1000 / sec) * sec, last = bars[n - 1];
+  const d = curTf(), bt = bucketOf(d, Math.floor(ms / 1000)), last = bars[n - 1];
   if (bt === last.time) { last.close = p; if (p > last.high) last.high = p; if (p < last.low) last.low = p; }
   else if (bt > last.time) {
-    if (bt - last.time > sec) return;
+    if (bt !== nextBucket(d, last.time)) return;
     candle.update(chartBar(last)); bars.push({ time: bt, open: p, high: p, low: p, close: p, volume: 0 }); S.newBar = true;
+    if (!isNative(d)) S.tail = new Map();
   } else return;
   S.barDirty = S.calcDirty = true; setPx(S.symbol, p); touch();
 }
@@ -1191,14 +1264,15 @@ async function loadMarket(prevSymbol) {
   el.loader.classList.add('on');
   el.symLabel.textContent = S.symbol; renderStar();
   if (S.agOpen && AG.base !== agBase()) { $('#agPair').textContent = `${agBase()} · importes en USD`; $('#agMin').value = agMin(); AG.start(); }
-  $$('#tfs .tb').forEach(b => b.classList.toggle('on', b.dataset.tf === S.tf));
+  renderTfBar();
   updateSubs(); save();
   try {
-    const [bars, prec] = await Promise.all([fetchKlines(S.symbol, S.tf), fetchPrecision(S.symbol)]);
+    const d = curTf(), [bars, prec] = await Promise.all([fetchBars(S.symbol, d), fetchPrecision(S.symbol)]);
     if (gen !== S.gen) return;
     if (!bars.length) throw Object.assign(new Error('Sin datos'), { fatal: true });
-    S.bars = bars; S.prec = prec != null ? prec : guessPrec(bars[bars.length - 1].close);
-    S.tz = S.tf === '1d' ? 0 : -new Date().getTimezoneOffset() * 60;
+    S.bars = bars; S.tail = bars.tail; S.prec = prec != null ? prec : guessPrec(bars[bars.length - 1].close);
+    S.tz = d.sec >= 86400 ? 0 : -new Date().getTimezoneOffset() * 60;
+    chart.applyOptions({ timeScale: { secondsVisible: d.sec < 60 } });
     S.loading = false;
     applyPrecision();
     setPx(S.symbol, bars[bars.length - 1].close);
@@ -1222,7 +1296,7 @@ async function loadMore() {
   if (S.loading || S.loadingMore || S.noMore || !S.bars.length || S.bars.length >= MAX_BARS) return;
   S.loadingMore = true; const gen = S.gen;
   try {
-    const first = S.bars[0].time, older = (await fetchKlines(S.symbol, S.tf, first * 1000 - 1)).filter(b => b.time < first);
+    const first = S.bars[0].time, older = (await fetchBars(S.symbol, curTf(), first * 1000 - 1)).filter(b => b.time < first);
     if (gen !== S.gen) return;
     if (older.length < 2) { S.noMore = true; return; }
     const ts = chart.timeScale(), r = ts.getVisibleLogicalRange();
@@ -1235,10 +1309,11 @@ async function resync() {
   if (S.loading || S.syncing || !S.bars.length) return;
   S.syncing = true; const gen = S.gen;
   try {
-    const fresh = await fetchKlines(S.symbol, S.tf);
+    const fresh = await fetchBars(S.symbol, curTf());
     if (gen !== S.gen || !fresh.length) return;
     let keep = S.bars.filter(b => b.time < fresh[0].time);
-    if (keep.length && fresh[0].time - keep[keep.length - 1].time > tfSec()) keep = [];
+    if (keep.length && fresh[0].time > nextBucket(curTf(), keep[keep.length - 1].time)) keep = [];
+    S.tail = fresh.tail;
     S.bars = keep.concat(fresh); setPx(S.symbol, fresh[fresh.length - 1].close); renderBars(false);
   } catch (e) {} finally { S.syncing = false; }
 }
@@ -1629,7 +1704,7 @@ function runScript(sc, mode) {
     if (ev.i !== n - 2) continue;
     const key = D.time[ev.i] + '|' + ev.kind + '|' + ev.msg; if (rt.seen.has(key)) continue; rt.seen.add(key);
     if (mode === 'full' || !rt.primed) continue;
-    toast(`🔔 ${sc.name}: ${ev.msg} · ${S.symbol} ${S.tf}`, ev.kind === 'sell' ? 'err' : ev.kind === 'buy' ? 'ok' : 'info', 6000);
+    toast(`🔔 ${sc.name}: ${ev.msg} · ${S.symbol} ${curTf().label}`, ev.kind === 'sell' ? 'err' : ev.kind === 'buy' ? 'ok' : 'info', 6000);
     try { navigator.vibrate && navigator.vibrate(120); } catch (e) {}
     if (ev.kind !== 'alert') autoTrade(ev.kind);
   }
@@ -1651,9 +1726,9 @@ function disableScript(sc) { sc.enabled = false; clearScriptSeries(sc); if (sc.r
 /* ---------- Marcadores (señales de scripts + operaciones del simulador) ---------- */
 function refreshMarkers() {
   if (!markersApi || !S.bars.length) return;
-  const out = [], bars = S.bars, t0 = bars[0].time, tN = bars[bars.length - 1].time, sec = tfSec();
+  const out = [], bars = S.bars, t0 = bars[0].time, tN = bars[bars.length - 1].time, dtf = curTf();
   for (const sc of S.scripts) if (sc.enabled && sc.rt) for (const m of sc.rt.marks) { const b = bars[m.i]; if (b) out.push({ time: b.time + S.tz, position: m.pos, color: m.color, shape: m.shape, text: m.text }); }
-  const tm = (ms, o) => { const bt = Math.min(tN, Math.floor(ms / 1000 / sec) * sec); if (bt >= t0) out.push(Object.assign({ time: bt + S.tz }, o)); };
+  const tm = (ms, o) => { const bt = Math.min(tN, bucketOf(dtf, Math.floor(ms / 1000))); if (bt >= t0) out.push(Object.assign({ time: bt + S.tz }, o)); };
   const entry = x => x.side === 'long' ? { position: 'belowBar', color: C.up, shape: 'arrowUp', text: 'L' } : { position: 'aboveBar', color: C.down, shape: 'arrowDown', text: 'S' };
   for (const p of T.positions) if (p.symbol === S.symbol) tm(p.time, entry(p));
   for (const x of T.history.slice(0, 100)) if (x.symbol === S.symbol) {
@@ -1768,6 +1843,22 @@ function updateSymRows() {   // refresco en vivo sin reconstruir la lista
     if (a) a.textContent = px; if (b) { b.textContent = ch; b.className = cls; }
   }
 }
+
+/* ---------- Selector de timeframes ---------- */
+function renderTfBar() {
+  const d = curTf();
+  $('#tfs').innerHTML = `<button id="tfBtn" class="tb on" data-tf="${d.id}" title="Cambiar intervalo" style="font-weight:600">${d.label}<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" style="width:12px;height:12px"><path d="M4 6l4 4 4-4"/></svg></button>` +
+    S.tfFav.filter(x => x !== d.id).map(x => `<button class="tb" data-tf="${x}" data-fav>${tfDef(x).label}</button>`).join('');
+  for (const b of $$('#tfs [data-fav]')) b.onclick = ev => { ev.stopPropagation(); setTf(b.dataset.tf); };
+}
+function renderTfPicker() {
+  const groups = [...new Set(TFS.map(t => t.g))];
+  $('#tfList').innerHTML = groups.map(g => `<div class="grp">${g}</div><div class="tf-grid">` +
+    TFS.filter(t => t.g === g).map(t => `<button class="tf-chip${t.id === S.tf ? ' on' : ''}" data-tf="${t.id}">${t.label}${S.tfEdit ? `<span class="tf-star${S.tfFav.includes(t.id) ? ' on' : ''}">★</span>` : ''}</button>`).join('') + '</div>').join('');
+  $('#tfEdit').textContent = S.tfEdit ? 'Hecho' : 'Editar favoritos';
+  $('#tfHint').style.display = S.tfEdit ? '' : 'none';
+}
+function openTfPicker() { S.tfEdit = false; renderTfPicker(); openModal('mTf'); }
 
 /* ---------- Watchlist ---------- */
 // Cambio respecto a la apertura diaria (00:00 UTC, como TradingView); si no se conoce, cambio en 24 h
@@ -2321,8 +2412,14 @@ function bindAggr() {
  * 10. EVENTOS DE INTERFAZ
  * ===================================================================== */
 function bindUI() {
-  $('#tfs').innerHTML = TFS.map(t => `<button class="tb" data-tf="${t.id}">${t.label}</button>`).join('');
-  $('#tfs').addEventListener('click', e => { const b = e.target.closest('[data-tf]'); if (b) setTf(b.dataset.tf); });
+  // Barra: botón del timeframe actual (abre el selector) + favoritos de acceso rápido
+  $('#tfs').addEventListener('click', e => { const b = e.target.closest('[data-tf]'); if (!b) return; if (b.dataset.tf === S.tf || b.id === 'tfBtn') openTfPicker(); });
+  $('#tfList').addEventListener('click', e => {
+    const b = e.target.closest('[data-tf]'); if (!b) return; const id = b.dataset.tf;
+    if (S.tfEdit) { const i = S.tfFav.indexOf(id); if (i >= 0) S.tfFav.splice(i, 1); else S.tfFav.push(id); S.tfFav.sort((a, c) => TFS.findIndex(t => t.id === a) - TFS.findIndex(t => t.id === c)); renderTfPicker(); renderTfBar(); save(); return; }
+    closeModal($('#mTf')); setTf(id);
+  });
+  $('#tfEdit').addEventListener('click', () => { S.tfEdit = !S.tfEdit; renderTfPicker(); });
   $('#btnSymbol').addEventListener('click', () => openSymbols(false));
   $('#btnInd').addEventListener('click', () => { $('#indQ').value = ''; renderIndList(); openModal('mInd'); });
   $('#btnScript').addEventListener('click', () => { openModal('mScript'); editScript(S.edId || (S.scripts[0] && S.scripts[0].id)); });
