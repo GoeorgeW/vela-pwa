@@ -595,6 +595,18 @@ const TA = {
     }
     return o;
   },
+  // Regresión lineal de los últimos p valores evaluada en la vela actual (= ta.linreg(v, p, 0) de Pine)
+  linreg: (v, p) => onValid(v, x => {
+    const n = x.length, o = nulls(n), sx = p * (p - 1) / 2, sxx = (p - 1) * p * (2 * p - 1) / 6, den = p * sxx - sx * sx;
+    for (let i = p - 1; i < n; i++) {
+      let sy = 0, sxy = 0, bad = false;
+      for (let j = 0; j < p; j++) { const y = x[i - p + 1 + j]; if (!isNum(y)) { bad = true; break; } sy += y; sxy += j * y; }
+      if (bad) continue;
+      const m = den ? (p * sxy - sx * sy) / den : 0, b = (sy - m * sx) / p; o[i] = b + m * (p - 1);
+    }
+    return o;
+  }),
+  sum: (v, p) => TA.sma(v, p).map(x => x == null ? null : x * p),
   // Cruces en la vela i (b puede ser un array o un nivel fijo)
   crossover(a, b, i) { const b1 = isNum(b) ? b : b[i], b0 = isNum(b) ? b : b[i - 1]; return i > 0 && isNum(a[i]) && isNum(a[i - 1]) && isNum(b1) && isNum(b0) && a[i] > b1 && a[i - 1] <= b0; },
   crossunder(a, b, i) { const b1 = isNum(b) ? b : b[i], b0 = isNum(b) ? b : b[i - 1]; return i > 0 && isNum(a[i]) && isNum(a[i - 1]) && isNum(b1) && isNum(b0) && a[i] < b1 && a[i - 1] >= b0; },
@@ -702,6 +714,98 @@ const DEFS = {
     plots: [{ k: 'line', title: 'ST', fixed: true, width: 2, colorFn: (i, r) => (r.dir[i + 1] != null && r.dir[i + 1] !== r.dir[i]) ? 'rgba(0,0,0,0)' : r.dir[i] === 1 ? C.up : C.down }],
     calc: (d, p) => TA.supertrend(d.high, d.low, d.close, p.period, p.mult), label: p => `SuperTrend ${p.period} ${p.mult}`,
   },
+  SQZ: {
+    short: 'SQZMOM', name: 'Squeeze Momentum Indicator [LazyBear]', group: G.osc, priceUnits: true,
+    params: [P.int('len', 'Longitud BB', 20, 2, 500), P.int('lenKC', 'Longitud KC', 20, 2, 500), P.num('multKC', 'Multiplicador KC', 1.5, 0.1, 10, 0.1),
+      { k: 'useTR', label: 'Usar True Range (KC)', def: '1', type: 'sel', opts: [['1', 'Sí'], ['0', 'No']] }],
+    // Réplica del script original de LazyBear (incluido el uso de multKC también para las Bandas de Bollinger)
+    plots: [{ k: 'val', type: 'hist', fixed: true, colorFn: (i, r) => { const v = r.val[i], pv = isNum(r.val[i - 1]) ? r.val[i - 1] : 0; return v > 0 ? (v > pv ? '#00e676' : '#4caf50') : (v < pv ? '#ff5252' : '#880e4f'); } },
+      { k: 'zero', type: 'dots', fixed: true, radius: 2, noLast: true, noLegend: true, colorFn: (i, r) => r.state[i] === 0 ? '#2196f3' : r.state[i] === 1 ? '#363a45' : '#787b86' }],
+    calc(d, p) {
+      const c = d.close, h = d.high, l = d.low;
+      const basis = TA.sma(c, p.len), sd = TA.stdev(c, p.len), ma = TA.sma(c, p.lenKC);
+      const rng = TA.sma(p.useTR === '1' ? NT.tr(h, l, c) : h.map((x, i) => x - l[i]), p.lenKC);
+      const hh = TA.highest(h, p.lenKC), ll = TA.lowest(l, p.lenKC);
+      const src = c.map((x, i) => isNum(hh[i]) && isNum(ma[i]) ? x - ((hh[i] + ll[i]) / 2 + ma[i]) / 2 : null);
+      const state = c.map((_, i) => {
+        if (!isNum(basis[i]) || !isNum(rng[i]) || !isNum(ma[i])) return null;
+        const dev = p.multKC * sd[i], uB = basis[i] + dev, lB = basis[i] - dev, uK = ma[i] + rng[i] * p.multKC, lK = ma[i] - rng[i] * p.multKC;
+        return lB > lK && uB < uK ? 1 : lB < lK && uB > uK ? -1 : 0;   // 1 = squeeze activo, -1 = liberado, 0 = sin squeeze
+      });
+      return { val: TA.linreg(src, p.lenKC), zero: state.map(x => x == null ? null : 0), state };
+    },
+    label: p => `SQZMOM_LB ${p.len} ${p.lenKC} ${p.multKC}`,
+  },
+  WT: {
+    short: 'WaveTrend', name: 'WaveTrend Oscillator [LazyBear]', group: G.osc,
+    params: [P.int('n1', 'Longitud canal', 10, 1, 200), P.int('n2', 'Longitud media', 21, 1, 200), P.int('ob', 'Sobrecompra', 60, 0, 200), P.int('os', 'Sobreventa', -60, -200, 0)],
+    plots: [{ k: 'diff', title: 'Dif', type: 'hist', fixed: true, noLast: true, colorFn: () => 'rgba(41,98,255,.45)' },
+      { k: 'wt1', title: 'WT1', color: '#4caf50', width: 2 }, { k: 'wt2', title: 'WT2', color: '#ff5252', dash: true },
+      { k: 'x', title: 'Cruce', type: 'dots', fixed: true, radius: 3, noLast: true, noLegend: true, colorFn: (i, r) => r.wt1[i] > r.wt2[i] ? '#00e676' : '#ff5252' }],
+    levelsFn: p => [p.ob, p.os, 0],
+    calc(d, p) {
+      const ap = d.src('hlc3'), esa = TA.ema(ap, p.n1);
+      const dd = TA.ema(ap.map((x, i) => isNum(esa[i]) ? Math.abs(x - esa[i]) : null), p.n1);
+      const ci = ap.map((x, i) => isNum(esa[i]) && isNum(dd[i]) ? (dd[i] ? (x - esa[i]) / (0.015 * dd[i]) : 0) : null);
+      const wt1 = TA.ema(ci, p.n2), wt2 = TA.sma(wt1, 4);
+      return { wt1, wt2, diff: wt1.map((x, i) => isNum(x) && isNum(wt2[i]) ? x - wt2[i] : null),
+        x: wt1.map((x, i) => TA.crossover(wt1, wt2, i) || TA.crossunder(wt1, wt2, i) ? wt2[i] : null) };
+    },
+    label: p => `WT_LB ${p.n1} ${p.n2}`,
+  },
+  STOCHRSI: {
+    short: 'Stoch RSI', name: 'RSI estocástico', group: G.osc,
+    params: [P.int('k', 'K', 3, 1, 50), P.int('d', 'D', 3, 1, 50), P.int('lenRsi', 'Longitud RSI', 14, 2, 200), P.int('lenSt', 'Longitud estocástico', 14, 2, 200), P.src()],
+    plots: [{ k: 'k', title: 'K', color: '#2962ff' }, { k: 'd', title: 'D', color: '#ff6d00' }], levels: [80, 20],
+    calc(d, p) {
+      // RSI a precisión completa (la librería lo redondea a 2 decimales y el estocástico amplificaría el error)
+      const r = onValid(d.src(p.source), x => NT.rsi(x, p.lenRsi)), hh = TA.highest(r, p.lenSt), ll = TA.lowest(r, p.lenSt);
+      const st = fillMid(r.map((x, i) => isNum(hh[i]) && hh[i] !== ll[i] ? 100 * (x - ll[i]) / (hh[i] - ll[i]) : null));
+      const k = TA.sma(st, p.k); return { k, d: TA.sma(k, p.d) };
+    },
+    label: p => `Stoch RSI ${p.k} ${p.d} ${p.lenRsi} ${p.lenSt}`,
+  },
+  DMI: {
+    short: 'DMI/ADX', name: 'Índice de movimiento direccional (ADX, +DI, −DI)', group: G.osc,
+    params: [P.int('len', 'Longitud DI', 14, 1, 200), P.int('adx', 'Suavizado ADX', 14, 1, 200)],
+    plots: [{ k: 'adx', title: 'ADX', color: '#f50057', width: 2 }, { k: 'plus', title: '+DI', color: '#2962ff' }, { k: 'minus', title: '−DI', color: '#ff6d00' }], levels: [25],
+    calc(d, p) {
+      const h = d.high, l = d.low, n = d.n, pdm = nulls(n), mdm = nulls(n);
+      for (let i = 1; i < n; i++) { const up = h[i] - h[i - 1], dn = l[i - 1] - l[i]; pdm[i] = up > dn && up > 0 ? up : 0; mdm[i] = dn > up && dn > 0 ? dn : 0; }
+      const tr = TA.rma(NT.tr(h, l, d.close), p.len), sp = TA.rma(pdm, p.len), sm = TA.rma(mdm, p.len);
+      const plus = sp.map((x, i) => isNum(x) && tr[i] ? 100 * x / tr[i] : null), minus = sm.map((x, i) => isNum(x) && tr[i] ? 100 * x / tr[i] : null);
+      const dx = plus.map((x, i) => isNum(x) && isNum(minus[i]) ? Math.abs(x - minus[i]) / ((x + minus[i]) || 1) : null);
+      return { adx: TA.rma(dx, p.adx).map(x => isNum(x) ? 100 * x : null), plus, minus };
+    },
+    label: p => `DMI ${p.len} ${p.adx}`,
+  },
+  MFI: {
+    short: 'MFI', name: 'Índice de flujo de dinero', group: G.osc, params: [P.int('len', 'Longitud', 14, 1, 200)],
+    plots: [{ k: 'v', title: 'MFI', color: '#7e57c2', width: 2 }], levels: [80, 20],
+    calc(d, p) {
+      const s = d.src('hlc3'), v = d.volume, n = d.n, up = nulls(n), dn = nulls(n);
+      for (let i = 1; i < n; i++) { const ch = s[i] - s[i - 1]; up[i] = ch <= 0 ? 0 : v[i] * s[i]; dn[i] = ch >= 0 ? 0 : v[i] * s[i]; }
+      const U = TA.sum(up, p.len), Dn = TA.sum(dn, p.len);
+      return { v: U.map((x, i) => !isNum(x) ? null : Dn[i] === 0 ? 100 : 100 - 100 / (1 + x / Dn[i])) };
+    },
+    label: p => `MFI ${p.len}`,
+  },
+  OBV: {
+    short: 'OBV', name: 'Volumen en balance', group: G.v, fmt: 'vol', params: [P.int('ma', 'Media (0 = sin media)', 0, 0, 500)],
+    plots: [{ k: 'v', title: 'OBV', color: '#2962ff', width: 2 }, { k: 'ma', title: 'MA', color: '#f7a600' }],
+    calc(d, p) {
+      const c = d.close, v = d.volume, o = new Array(d.n); let acc = 0;
+      for (let i = 0; i < d.n; i++) { if (i) acc += Math.sign(c[i] - c[i - 1]) * v[i]; o[i] = acc; }
+      return { v: o, ma: p.ma > 0 ? TA.sma(o, p.ma) : nulls(d.n) };
+    },
+    label: p => `OBV${p.ma > 0 ? ' · MA ' + p.ma : ''}`,
+  },
+  DC: {
+    short: 'Donchian', name: 'Canales de Donchian', group: G.vol, overlay: true, params: [P.int('len', 'Longitud', 20, 1, 500)],
+    plots: [{ k: 'upper', title: 'Sup', color: '#2962ff' }, { k: 'basis', title: 'Base', color: '#ff6d00' }, { k: 'lower', title: 'Inf', color: '#2962ff' }],
+    calc(d, p) { const u = TA.highest(d.high, p.len), lo = TA.lowest(d.low, p.len); return { upper: u, lower: lo, basis: u.map((x, i) => isNum(x) ? (x + lo[i]) / 2 : null) }; },
+    label: p => `DC ${p.len}`,
+  },
   ICHI: {
     short: 'Ichimoku', name: 'Nube de Ichimoku', group: G.vol, overlay: true,
     params: [P.int('conv', 'Tenkan (conversión)', 9, 1, 200), P.int('base', 'Kijun (base)', 26, 1, 300), P.int('span', 'Senkou B', 52, 1, 500), P.int('disp', 'Desplazamiento', 26, 1, 200)],
@@ -793,7 +897,7 @@ function buildSeries(inst) {
       color: inst.colors[pl.k] || pl.color || C.accent, lineWidth: pl.width || 1, priceLineVisible: false,
       lastValueVisible: !def.overlay && !pl.noLast, crosshairMarkerVisible: false, visible: !inst.hidden,
     };
-    if (pl.type === 'dots') Object.assign(o, { lineVisible: false, pointMarkersVisible: true, pointMarkersRadius: 1.5 });
+    if (pl.type === 'dots') Object.assign(o, { lineVisible: false, pointMarkersVisible: true, pointMarkersRadius: pl.radius || 1.5 });
     if (pl.dash) o.lineStyle = LC.LineStyle.Dashed;
     if (def.fmt === 'vol') o.priceFormat = { type: 'volume' };
     else if (def.overlay || def.priceUnits) o.priceFormat = pf();
@@ -803,7 +907,13 @@ function buildSeries(inst) {
     inst.series[pl.k] = s;
   }
   const first = inst.series[def.plots[def.plots.length > 1 && def.plots[0].type === 'hist' ? 1 : 0].k];
-  for (const lv of def.levels || []) first.createPriceLine({ price: lv, color: 'rgba(120,123,134,.7)', lineWidth: 1, lineStyle: LC.LineStyle.Dashed, axisLabelVisible: false });
+  inst.levelHost = first; drawLevels(inst);
+}
+function drawLevels(inst) {
+  const def = DEFS[inst.type], host = inst.levelHost; if (!host) return;
+  for (const l of inst.levelLines || []) { try { host.removePriceLine(l); } catch (e) {} }
+  inst.levelLines = ((def.levelsFn ? def.levelsFn(inst.params) : def.levels) || []).map(lv =>
+    host.createPriceLine({ price: lv, color: 'rgba(120,123,134,.7)', lineWidth: 1, lineStyle: LC.LineStyle.Dashed, axisLabelVisible: false }));
 }
 function computeInst(inst, mode) {
   const def = DEFS[inst.type]; let res;
@@ -852,7 +962,7 @@ function renderLegend() {
   for (const inst of S.inds) {
     const def = DEFS[inst.type];
     rows.push(`<div class="lg-row${inst.hidden ? ' off' : ''}" data-uid="${inst.uid}"><span class="lg-name">${esc(def.label(inst.params))}</span>` +
-      `<span class="lg-vals num">${def.plots.map(pl => `<span data-v="${pl.k}" style="color:${pl.fixed ? '#b2b5be' : (inst.colors[pl.k] || pl.color)}"></span>`).join('')}</span>` +
+      `<span class="lg-vals num">${def.plots.filter(pl => !pl.noLegend).map(pl => `<span data-v="${pl.k}" style="color:${pl.fixed ? '#b2b5be' : (inst.colors[pl.k] || pl.color)}"></span>`).join('')}</span>` +
       lgBtn('cfg', ICON.gear, 'Configurar') + lgBtn('eye', inst.hidden ? ICON.eyeOff : ICON.eye, 'Mostrar/ocultar') + (def.locked ? '' : lgBtn('rm', ICON.x, 'Quitar')) + '</div>');
   }
   for (const sc of S.scripts) if (sc.enabled) {
@@ -1795,6 +1905,7 @@ function applyCfg() {
     else { let v = parseFloat(inp.value); if (!isNum(v)) continue; if (p.type === 'int') v = Math.round(v); inst.params[p.k] = clamp(v, p.min, p.max); }
   }
   for (const pl of def.plots) { const c = $(`#cfgBody [data-c="${pl.k}"]`); if (c) { inst.colors[pl.k] = c.value; inst.series[pl.k].applyOptions({ color: c.value }); } }
+  if (def.levelsFn) drawLevels(inst);
   if (D) computeInst(inst, 'full');
   renderLegend(); save();
 }
