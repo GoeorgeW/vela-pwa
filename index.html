@@ -93,6 +93,26 @@
   .lg-btn{width:22px;height:22px;display:inline-flex;align-items:center;justify-content:center;border-radius:4px;color:#b2b5be;flex:none}
   .lg-btn:hover{background:#363a45;color:#fff}
   .lg-btn svg{width:14px;height:14px}
+  @media (pointer:coarse){.lg-btn{width:30px;height:28px}.lg-btn svg{width:16px;height:16px}}
+  #btnStar.on{color:#f7a600}#btnStar.on svg{fill:#f7a600}
+  /* Watchlist */
+  .wl-head{display:flex;align-items:center;gap:8px;padding:6px 12px;border-bottom:1px solid var(--line);font-size:11px;color:var(--mute);flex:none}
+  .wl-head button{color:var(--mute)}.wl-head button.on{color:var(--txt)}
+  .wl-row{display:flex;align-items:center;gap:10px;padding:10px 12px;border-bottom:1px solid rgba(42,46,57,.6);cursor:pointer;user-select:none;-webkit-user-select:none}
+  .wl-row:hover{background:var(--hover)}
+  .wl-row.cur{background:rgba(41,98,255,.1);box-shadow:inset 3px 0 0 var(--accent)}
+  .wl-row.drag{background:#2a2e39;box-shadow:0 4px 18px rgba(0,0,0,.5);position:relative;z-index:2}
+  .wl-ava{width:36px;height:36px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;flex:none;color:#fff;font-weight:700;font-size:11px;letter-spacing:-.02em}
+  .wl-sym{font-size:15px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .wl-sub{font-size:12px;color:var(--mute);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .wl-px{font-size:15px;font-weight:600;white-space:nowrap}
+  .wl-ch{font-size:12px;white-space:nowrap}
+  .wl-del{width:26px;height:26px;border-radius:50%;background:var(--down);color:#fff;font-size:18px;line-height:1;flex:none;display:inline-flex;align-items:center;justify-content:center}
+  .wl-grip{width:32px;height:36px;display:inline-flex;align-items:center;justify-content:center;color:var(--mute);font-size:20px;touch-action:none;cursor:grab;flex:none}
+  .star{width:30px;height:30px;display:inline-flex;align-items:center;justify-content:center;border-radius:6px;color:var(--mute);flex:none}
+  .star svg{width:18px;height:18px}.star.on{color:#f7a600}.star.on svg{fill:#f7a600}
+  .ind-btn{width:32px;height:32px;display:inline-flex;align-items:center;justify-content:center;border-radius:6px;color:#b2b5be;flex:none}
+  .ind-btn:hover{background:#363a45;color:#fff}.ind-btn svg{width:17px;height:17px}
   #lgToggle{pointer-events:auto;color:var(--mute);font-size:11px;padding:1px 4px;border-radius:4px;background:rgba(30,34,45,.7)}
   #loader{position:absolute;inset:0;z-index:6;display:none;align-items:center;justify-content:center;background:rgba(19,23,34,.6)}
   #loader.on{display:flex}
@@ -157,6 +177,7 @@
         <span id="symLabel">BTCUSDT</span>
         <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 6l4 4 4-4"/></svg>
       </button>
+      <button id="btnStar" class="tb" style="padding:0 5px;margin-left:-6px" title="Añadir a la watchlist" aria-label="Añadir a la watchlist"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"><path d="M8 1.8l1.9 3.9 4.3.6-3.1 3 .7 4.3L8 11.6l-3.8 2 .7-4.3-3.1-3 4.3-.6z"/></svg></button>
       <div class="flex items-baseline gap-2 min-w-0 num">
         <span id="px" class="font-semibold" style="font-size:17px">—</span>
         <span id="chg" class="text-xs whitespace-nowrap">—</span>
@@ -176,6 +197,9 @@
     <div class="flex items-center gap-1 px-2 h-10 border-t border-line overflow-x-auto no-sb">
       <div id="tfs" class="flex gap-0.5"></div>
       <span class="sep"></span>
+      <button id="btnWl" class="tb" title="Watchlist" aria-label="Watchlist">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 3.5h12M2 8h12M2 12.5h7"/></svg><span class="hidden sm:inline">Watchlist</span>
+      </button>
       <button id="btnInd" class="tb" title="Indicadores" aria-label="Indicadores">
         <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M1.5 11.5l3.5-5 3 3 3.5-6 3 4"/></svg><span class="hidden sm:inline">Indicadores</span>
       </button>
@@ -239,9 +263,28 @@
   </main>
 </div>
 
+<!-- ===== Watchlist ===== -->
+<div id="mWl" class="modal"><div class="sheet lg">
+  <div class="sh-head">
+    <select id="wlSel" class="inp" style="flex:0 1 220px;font-weight:600" aria-label="Lista"></select>
+    <button id="wlAdd" class="btn sm acc" style="margin-left:auto">＋ Añadir</button>
+    <button id="wlEdit" class="btn sm">Editar</button>
+    <button class="sh-x" style="margin-left:0" data-close>✕</button>
+  </div>
+  <div id="wlTools" class="flex flex-wrap gap-2 px-3 py-2 border-b border-line" style="display:none">
+    <button class="btn sm" data-wl="new">Nueva lista</button>
+    <button class="btn sm" data-wl="rename">Renombrar</button>
+    <button class="btn sm" data-wl="delete" style="color:var(--down)">Eliminar lista</button>
+    <span class="mute self-center" style="font-size:11px">Arrastra ≡ para reordenar</span>
+  </div>
+  <div id="wlHead" class="wl-head num"></div>
+  <div id="wlList" class="flex-1 overflow-y-auto"></div>
+  <div class="px-3 py-2 text-mute border-t border-line" style="font-size:11px">Cambio desde la apertura diaria (00:00 UTC), igual que TradingView. Toca un símbolo para abrir su gráfico.</div>
+</div></div>
+
 <!-- ===== Buscador de pares ===== -->
 <div id="mSym" class="modal"><div class="sheet" style="height:80dvh">
-  <div class="sh-head">Buscar par<button class="sh-x" data-close>✕</button></div>
+  <div class="sh-head"><span id="symTitle">Buscar par</span><button class="sh-x" data-close>✕</button></div>
   <div class="p-2 flex flex-col gap-2 border-b border-line">
     <input id="symQ" class="inp" type="search" placeholder="BTC, ETH, SOL…" autocomplete="off" autocapitalize="characters" spellcheck="false">
     <div id="symQuotes" class="flex gap-1.5 overflow-x-auto no-sb"></div>
@@ -362,6 +405,20 @@ const T = Object.assign({ initial: 10000, balance: 10000, positions: [], history
 if (!Array.isArray(T.positions)) T.positions = [];
 if (!Array.isArray(T.history)) T.history = [];
 
+// Watchlists (varias listas con nombre, como en TradingView)
+const WL_DEFAULT = ['BTCUSDT', 'ETHUSDT', 'SOLUSDT', 'AVAXUSDT', 'ROSEUSDT', 'ETHBTC'];
+const W = (() => {
+  const w = saved.wl;
+  if (w && Array.isArray(w.lists)) {
+    const lists = w.lists.filter(l => l && Array.isArray(l.syms)).map(l => ({ id: String(l.id), name: String(l.name || 'Lista').slice(0, 40), syms: [...new Set(l.syms.filter(x => /^[A-Z0-9]{3,20}$/.test(x)))] }));
+    if (lists.length) return { lists, active: lists.some(l => l.id === w.active) ? w.active : lists[0].id };
+  }
+  return { lists: [{ id: 'w1', name: 'Watchlist', syms: WL_DEFAULT.slice() }], active: 'w1' };
+})();
+const wlCur = () => W.lists.find(l => l.id === W.active) || W.lists[0];
+const wlHas = sym => wlCur().syms.includes(sym);
+S.dayOpen = {}; S.doDay = Math.floor(Date.now() / 864e5); S.wlOpen = false; S.wlEdit = false; S.wlSort = null; S.symAdd = false; S.known = null;
+
 let saveTimer = 0;
 function saveNow() {
   try {
@@ -369,7 +426,7 @@ function saveNow() {
       symbol: S.symbol, tf: S.tf, panelOpen: S.panelOpen, lgOpen: S.lgOpen || !!S.lgAuto, quote: S.quote,
       inds: S.inds.map(i => ({ type: i.type, params: i.params, colors: i.colors, hidden: i.hidden })),
       scripts: S.scripts.map(s => ({ id: s.id, name: s.name, code: s.code, enabled: s.enabled })),
-      trade: T, form: { margin: $('#oMargin').value, lev: $('#oLev').value },
+      wl: W, trade: T, form: { margin: $('#oMargin').value, lev: $('#oLev').value },
     }));
   } catch (e) { /* almacenamiento lleno o bloqueado */ }
 }
@@ -773,7 +830,7 @@ function addIndicator(type, params, extra = {}, silent) {
 function removeIndicator(uid) {
   const i = S.inds.findIndex(x => x.uid === uid); if (i < 0 || DEFS[S.inds[i].type].locked) return;
   for (const s of Object.values(S.inds[i].series)) { try { chart.removeSeries(s); } catch (e) {} }
-  S.inds.splice(i, 1); layoutPanes(); renderLegend(); save();
+  S.inds.splice(i, 1); layoutPanes(); renderLegend(); if (indModalOpen()) renderIndList(); save();
 }
 function applyPrecision() {
   const f = pf(); candle.applyOptions({ priceFormat: f });
@@ -786,6 +843,8 @@ const ICON = {
   eye: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M1.5 8S4 3.5 8 3.5 14.5 8 14.5 8 12 12.5 8 12.5 1.5 8 1.5 8z"/><circle cx="8" cy="8" r="2"/></svg>',
   x: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 4l8 8M12 4l-8 8"/></svg>',
   edit: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M5.5 4L2 8l3.5 4M10.5 4L14 8l-3.5 4"/></svg>',
+  eyeOff: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M1.5 8S4 3.5 8 3.5 14.5 8 14.5 8 12 12.5 8 12.5 1.5 8 1.5 8z"/><circle cx="8" cy="8" r="2"/><path d="M2.5 13.5l11-11"/></svg>',
+  star: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"><path d="M8 1.8l1.9 3.9 4.3.6-3.1 3 .7 4.3L8 11.6l-3.8 2 .7-4.3-3.1-3 4.3-.6z"/></svg>',
 };
 const lgBtn = (act, icon, title) => `<button class="lg-btn" data-act="${act}" title="${title}" aria-label="${title}">${icon}</button>`;
 function renderLegend() {
@@ -794,7 +853,7 @@ function renderLegend() {
     const def = DEFS[inst.type];
     rows.push(`<div class="lg-row${inst.hidden ? ' off' : ''}" data-uid="${inst.uid}"><span class="lg-name">${esc(def.label(inst.params))}</span>` +
       `<span class="lg-vals num">${def.plots.map(pl => `<span data-v="${pl.k}" style="color:${pl.fixed ? '#b2b5be' : (inst.colors[pl.k] || pl.color)}"></span>`).join('')}</span>` +
-      lgBtn('cfg', ICON.gear, 'Configurar') + lgBtn('eye', ICON.eye, 'Mostrar/ocultar') + (def.locked ? '' : lgBtn('rm', ICON.x, 'Quitar')) + '</div>');
+      lgBtn('cfg', ICON.gear, 'Configurar') + lgBtn('eye', inst.hidden ? ICON.eyeOff : ICON.eye, 'Mostrar/ocultar') + (def.locked ? '' : lgBtn('rm', ICON.x, 'Quitar')) + '</div>');
   }
   for (const sc of S.scripts) if (sc.enabled) {
     rows.push(`<div class="lg-row" data-sid="${sc.id}"><span class="lg-name">${esc(sc.name)}${sc.error ? ' <span class="down">⚠</span>' : ''}</span>` +
@@ -914,6 +973,7 @@ const Feed = {
 function updateSubs() {
   const s = S.symbol.toLowerCase(), w = [`${s}@kline_${S.tf}`, `${s}@aggTrade`, `${s}@miniTicker`, 'btcusdt@miniTicker'];
   for (const p of T.positions) if (p.symbol !== S.symbol) w.push(p.symbol.toLowerCase() + '@miniTicker');
+  for (const x of wlCur().syms.slice(0, 100)) if (!S.known || S.known.has(x)) w.push(x.toLowerCase() + '@miniTicker');   // watchlist siempre en vivo
   if (S.symOpen) w.push('!miniTicker@arr');
   Feed.set(w);
 }
@@ -925,7 +985,9 @@ function onFeed(m) {
 }
 function onMini(t) {
   const c = +t.c, tk = S.tickers.get(t.s);
-  if (tk) { tk.c = c; tk.o = +t.o; tk.qv = +t.q; } else if (S.symOpen) S.tickers.set(t.s, { s: t.s, c, o: +t.o, qv: +t.q });
+  const inWl = wlHas(t.s);
+  if (tk) { tk.c = c; tk.o = +t.o; tk.qv = +t.q; } else if (S.symOpen || inWl) S.tickers.set(t.s, { s: t.s, c, o: +t.o, qv: +t.q });
+  if (inWl) S.wlDirty = true;
   if (t.s === S.symbol) { S.tk24 = { o: +t.o, h: +t.h, l: +t.l, q: +t.q }; if (!S.loading && S.prices[t.s] == null) setPx(t.s, c); touch(); }
   else if (T.positions.some(p => p.symbol === t.s)) setPx(t.s, c);
 }
@@ -962,7 +1024,7 @@ async function loadMarket(prevSymbol) {
   const gen = ++S.gen;
   S.loading = true; S.noMore = false; S.bars = []; S.tk24 = null; S.prevPx = null; S.hover = null;
   el.loader.classList.add('on');
-  el.symLabel.textContent = S.symbol;
+  el.symLabel.textContent = S.symbol; renderStar();
   $$('#tfs .tb').forEach(b => b.classList.toggle('on', b.dataset.tf === S.tf));
   updateSubs(); save();
   try {
@@ -976,7 +1038,7 @@ async function loadMarket(prevSymbol) {
     setPx(S.symbol, bars[bars.length - 1].close);
     renderBars(true);
     el.loader.classList.remove('on');
-    renderOrderInfo(); renderTrade();
+    renderOrderInfo(); renderTrade(); fetchDayOpens([S.symbol]);
   } catch (e) {
     if (gen !== S.gen) return;
     if (e.fatal && prevSymbol && prevSymbol !== S.symbol) { toast(`No se encontró el par ${S.symbol} en Binance`, 'err'); S.symbol = prevSymbol; return loadMarket(); }
@@ -1043,10 +1105,11 @@ function renderHeader(now) {
   el.px.textContent = fmtP(p);
   if (S.prevPx != null && p !== S.prevPx) el.px.className = 'font-semibold ' + (p > S.prevPx ? 'up' : 'down');
   S.prevPx = p;
-  const tk = S.tk24;
-  if (tk && tk.o) {
-    const d = p - tk.o, pc = d / tk.o * 100;
+  const tk = S.tk24, ch = chgOf(S.symbol, p, tk && tk.o);
+  if (ch) { const { d, pc } = ch; el.chg.title = S.dayOpen[S.symbol] ? 'Cambio desde la apertura diaria (00:00 UTC)' : 'Cambio en 24 h';
     el.chg.innerHTML = `<span class="hidden sm:inline">${d >= 0 ? '+' : ''}${fmtP(d)} </span>${fmtPct(pc)}`; el.chg.className = 'text-xs whitespace-nowrap ' + (d >= 0 ? 'up' : 'down');
+  }
+  if (tk) {
     el.h24.textContent = fmtP(tk.h); el.l24.textContent = fmtP(tk.l); el.v24.textContent = fmtVol(tk.q) + ' ' + quoteOf(S.symbol);
   }
   if (now - tTitle > 1000) { tTitle = now; document.title = `${fmtP(p)} ${S.symbol} · Vela`; }
@@ -1417,7 +1480,7 @@ function runScripts(mode, newBar) {
   }
   return ran;
 }
-function disableScript(sc) { sc.enabled = false; clearScriptSeries(sc); if (sc.rt) { sc.rt.marks = []; sc.rt.plots = []; } layoutPanes(); refreshMarkers(); renderLegend(); save(); }
+function disableScript(sc) { sc.enabled = false; clearScriptSeries(sc); if (sc.rt) { sc.rt.marks = []; sc.rt.plots = []; } layoutPanes(); refreshMarkers(); renderLegend(); if (indModalOpen()) renderIndList(); save(); }
 
 /* ---------- Marcadores (señales de scripts + operaciones del simulador) ---------- */
 function refreshMarkers() {
@@ -1479,23 +1542,37 @@ function saveAndRunScript() {
 function openModal(id) { $('#' + id).classList.add('open'); }
 function closeModal(m) {
   m.classList.remove('open');
-  if (m.id === 'mSym') { S.symOpen = false; updateSubs(); }
+  if (m.id === 'mSym') { S.symOpen = false; S.symAdd = false; updateSubs(); if (S.wlOpen) renderWl(); }
+  if (m.id === 'mWl') { S.wlOpen = false; S.wlEdit = false; }
   if (m.id === 'mCfg') S.cfgUid = null;
 }
 
 /* ---------- Buscador de pares en vivo ---------- */
-async function openSymbols() {
-  S.symOpen = true; openModal('mSym'); updateSubs();
+// Lista completa de pares de Binance (precio + cambio 24 h), cacheada 2 min
+function loadTickers() {
+  if (Date.now() - S.tickersAt < 120000) return Promise.resolve(true);
+  if (S.tickersP) return S.tickersP;
+  return (S.tickersP = (async () => {
+    try {
+      const j = await api('/api/v3/ticker/24hr?type=MINI', 15000);
+      if (!Array.isArray(j)) return false;
+      const m = new Map(), known = new Set();
+      for (const t of j) {
+        known.add(t.symbol); const qv = +t.quoteVolume;
+        if (!(qv > 0) || /(UP|DOWN|BULL|BEAR)USDT$/.test(t.symbol)) continue;
+        m.set(t.symbol, { s: t.symbol, c: +t.lastPrice, o: +t.openPrice, qv });
+      }
+      S.tickers = m; S.known = known; S.tickersAt = Date.now(); updateSubs(); return true;
+    } catch (e) { return false; } finally { S.tickersP = null; }
+  })());
+}
+async function openSymbols(addMode) {
+  S.symOpen = true; S.symAdd = !!addMode; openModal('mSym'); updateSubs();
+  $('#symTitle').textContent = S.symAdd ? `Añadir a «${wlCur().name}»` : 'Buscar par';
   const q = $('#symQ'); q.value = ''; renderSymList();
   if (window.innerWidth >= 640) q.focus();
-  if (Date.now() - S.tickersAt < 120000) return;
-  try {
-    const j = await api('/api/v3/ticker/24hr?type=MINI', 15000);
-    if (!Array.isArray(j)) return;
-    S.tickers = new Map();
-    for (const t of j) { const qv = +t.quoteVolume; if (!(qv > 0) || /(UP|DOWN|BULL|BEAR)USDT$/.test(t.symbol)) continue; S.tickers.set(t.symbol, { s: t.symbol, c: +t.lastPrice, o: +t.openPrice, qv }); }
-    S.tickersAt = Date.now(); if (S.symOpen) renderSymList();
-  } catch (e) { toast('No se pudo cargar la lista completa de pares', 'err'); }
+  if (!(await loadTickers())) toast('No se pudo cargar la lista completa de pares', 'err');
+  if (S.symOpen) renderSymList();
 }
 function symMatches() {
   const q = $('#symQ').value.trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
@@ -1511,7 +1588,7 @@ function renderSymList() {
   const { q, arr } = symMatches(); let h = '';
   for (const t of arr) {
     const [px, ch, cls] = symCells(t), qt = quoteOf(t.s);
-    h += `<div class="row num" data-sym="${t.s}"><div class="flex-1 min-w-0"><b>${esc(baseOf(t.s))}</b><span class="mute">${qt ? '/' + qt : ''}</span></div>` +
+    h += `<div class="row num" data-sym="${t.s}"><button class="star${wlHas(t.s) ? ' on' : ''}" data-star title="Watchlist">${ICON.star}</button><div class="flex-1 min-w-0"><b>${esc(baseOf(t.s))}</b><span class="mute">${qt ? '/' + qt : ''}</span></div>` +
       `<div data-c="px">${px}</div><div data-c="ch" class="${cls}" style="width:64px;text-align:right">${ch}</div></div>`;
   }
   if (!arr.length) h = q.length >= 5 ? `<div class="row" data-sym="${esc(q)}">Abrir <b>${esc(q)}</b></div>` : '<div class="p-4 text-center mute">Sin resultados</div>';
@@ -1525,13 +1602,167 @@ function updateSymRows() {   // refresco en vivo sin reconstruir la lista
   }
 }
 
+/* ---------- Watchlist ---------- */
+// Cambio respecto a la apertura diaria (00:00 UTC, como TradingView); si no se conoce, cambio en 24 h
+function chgOf(sym, price, o24) { const o = S.dayOpen[sym] || o24; return isNum(price) && o > 0 ? { d: price - o, pc: (price - o) / o * 100 } : null; }
+async function fetchDayOpens(list) {
+  const day = Math.floor(Date.now() / 864e5);
+  if (day !== S.doDay) { S.dayOpen = {}; S.doDay = day; }
+  const miss = [...new Set(list)].filter(x => S.dayOpen[x] == null && (!S.known || S.known.has(x)));
+  for (let i = 0; i < miss.length; i += 100) {
+    const chunk = miss.slice(i, i + 100);
+    try {
+      const j = await api('/api/v3/ticker/tradingDay?type=MINI&symbols=' + encodeURIComponent(JSON.stringify(chunk)), 12000);
+      for (const t of Array.isArray(j) ? j : [j]) if (t && t.symbol && +t.openPrice > 0) S.dayOpen[t.symbol] = +t.openPrice;
+    } catch (e) { /* sin apertura diaria se muestra el cambio de 24 h */ }
+  }
+  S.wlDirty = true; touch();
+}
+function renderStar() { const b = $('#btnStar'); if (b) b.classList.toggle('on', wlHas(S.symbol)); }
+function afterWl() { updateSubs(); renderStar(); if (S.wlOpen) renderWl(); save(); }
+function wlToggle(sym) {
+  const L = wlCur(), i = L.syms.indexOf(sym);
+  if (i >= 0) { L.syms.splice(i, 1); toast(`${sym} quitado de «${L.name}»`, 'info', 1400); }
+  else {
+    if (L.syms.length >= 100) return toast('Máximo 100 símbolos por lista', 'err');
+    L.syms.push(sym); toast(`${sym} añadido a «${L.name}»`, 'ok', 1400); fetchDayOpens([sym]);
+  }
+  afterWl();
+}
+const avaColor = sym => { let h = 0; for (const c of baseOf(sym)) h = (h * 31 + c.charCodeAt(0)) % 360; return `hsl(${h},50%,38%)`; };
+function wlCells(sym) {
+  const t = S.tickers.get(sym), px = t && isNum(t.c) ? t.c : (S.symbol === sym ? S.prices[sym] : null), ch = chgOf(sym, px, t && t.o), d = guessPrec(px || 1);
+  return { px: isNum(px) ? fmtN(px, d) : '—', ch: ch ? `${ch.d >= 0 ? '+' : '−'}${fmtN(Math.abs(ch.d), d)} ${fmtPct(ch.pc)}` : '', cls: ch ? (ch.d >= 0 ? 'up' : 'down') : 'mute', pc: ch ? ch.pc : null, raw: px };
+}
+function wlSorted() {
+  const syms = wlCur().syms.slice(), so = S.wlSort; if (!so || S.wlEdit) return syms;
+  const val = x => so.k === 'sym' ? x : so.k === 'px' ? (wlCells(x).raw ?? -Infinity) : (wlCells(x).pc ?? -Infinity);
+  return syms.sort((a, b) => { const A = val(a), B = val(b); return (A < B ? -1 : A > B ? 1 : 0) * so.dir; });
+}
+function renderWl() {
+  const L = wlCur();
+  $('#wlSel').innerHTML = W.lists.map(l => `<option value="${esc(l.id)}">${esc(l.name)} (${l.syms.length})</option>`).join('') + '<option value="__new">＋ Nueva lista…</option>';
+  $('#wlSel').value = L.id;
+  $('#wlEdit').textContent = S.wlEdit ? 'Hecho' : 'Editar';
+  $('#wlTools').style.display = S.wlEdit ? '' : 'none';
+  const so = S.wlSort, arrow = k => so && so.k === k && !S.wlEdit ? (so.dir > 0 ? ' ▲' : ' ▼') : '';
+  $('#wlHead').innerHTML = `<button data-sort="sym" class="${arrow('sym') ? 'on' : ''}" style="flex:1;text-align:left">Símbolo${arrow('sym')}</button>` +
+    `<button data-sort="px" class="${arrow('px') ? 'on' : ''}">Último${arrow('px')}</button><span>·</span><button data-sort="pc" class="${arrow('pc') ? 'on' : ''}">Cambio %${arrow('pc')}</button>`;
+  let h = '';
+  for (const sym of wlSorted()) {
+    const c = wlCells(sym), qt = quoteOf(sym), na = S.known && !S.known.has(sym), base = baseOf(sym);
+    h += `<div class="wl-row${sym === S.symbol ? ' cur' : ''}" data-sym="${esc(sym)}">` +
+      (S.wlEdit ? '<button class="wl-del" data-act="del" aria-label="Quitar">−</button>' : '') +
+      `<span class="wl-ava" style="background:${avaColor(sym)}${base.length > 4 ? ';font-size:9px' : ''}">${esc(base.slice(0, 5))}</span>` +
+      `<div class="flex-1 min-w-0"><div class="wl-sym">${esc(sym)}</div><div class="wl-sub">${na ? '<span class="down">No disponible en Binance</span>' : esc(base) + (qt ? ' / ' + esc(qt) : '') + ' · Binance'}</div></div>` +
+      `<div class="text-right num min-w-0"><div class="wl-px" data-c="px">${c.px}</div><div class="wl-ch ${c.cls}" data-c="ch">${c.ch}</div></div>` +
+      (S.wlEdit ? '<span class="wl-grip" data-grip aria-label="Reordenar">≡</span>' : '') + '</div>';
+  }
+  $('#wlList').innerHTML = h || '<div class="p-6 text-center mute">Lista vacía. Pulsa «＋ Añadir» o la estrella ☆ junto a un par para añadirlo.</div>';
+}
+function updateWlRows() {
+  for (const row of $('#wlList').children) {
+    const sym = row.dataset.sym; if (!sym) continue; const c = wlCells(sym);
+    const a = row.querySelector('[data-c=px]'), b = row.querySelector('[data-c=ch]');
+    if (a && a.textContent !== c.px) a.textContent = c.px;
+    if (b) { b.textContent = c.ch; b.className = 'wl-ch ' + c.cls; }
+  }
+}
+async function openWatchlist() {
+  S.wlOpen = true; S.wlEdit = false; openModal('mWl'); renderWl();
+  await loadTickers(); if (!S.wlOpen) return;
+  renderWl(); fetchDayOpens(wlCur().syms);
+}
+function bindWatchlist() {
+  $('#btnWl').addEventListener('click', openWatchlist);
+  $('#btnStar').addEventListener('click', () => wlToggle(S.symbol));
+  $('#wlAdd').addEventListener('click', () => openSymbols(true));
+  $('#wlEdit').addEventListener('click', () => { S.wlEdit = !S.wlEdit; renderWl(); });
+  $('#wlSel').addEventListener('change', e => {
+    if (e.target.value === '__new') { e.target.value = W.active; return wlAction('new'); }
+    W.active = e.target.value; afterWl(); fetchDayOpens(wlCur().syms);
+  });
+  $('#wlHead').addEventListener('click', e => {
+    const b = e.target.closest('[data-sort]'); if (!b || S.wlEdit) return; const k = b.dataset.sort, so = S.wlSort;
+    // orden manual → descendente → ascendente → manual
+    S.wlSort = !so || so.k !== k ? { k, dir: k === 'sym' ? 1 : -1 } : so.dir === (k === 'sym' ? 1 : -1) ? { k, dir: -so.dir } : null;
+    renderWl();
+  });
+  $('#wlTools').addEventListener('click', e => { const b = e.target.closest('[data-wl]'); if (b) wlAction(b.dataset.wl); });
+  const list = $('#wlList');
+  list.addEventListener('click', e => {
+    const row = e.target.closest('[data-sym]'); if (!row || S.wlDragged) return;
+    const sym = row.dataset.sym;
+    if (e.target.closest('[data-act=del]')) { const L = wlCur(); L.syms = L.syms.filter(x => x !== sym); afterWl(); return; }
+    if (S.wlEdit || e.target.closest('[data-grip]')) return;
+    closeModal($('#mWl')); setSymbol(sym);
+  });
+  // Reordenar arrastrando el asa ≡ (ratón y táctil)
+  list.addEventListener('pointerdown', e => {
+    const g = e.target.closest('[data-grip]'); if (!g) return;
+    e.preventDefault(); const row = g.closest('.wl-row');
+    S.wlDrag = { row, id: e.pointerId }; row.classList.add('drag');
+    try { g.setPointerCapture(e.pointerId); } catch (err) {}
+  });
+  list.addEventListener('pointermove', e => {
+    const dr = S.wlDrag; if (!dr || e.pointerId !== dr.id) return; e.preventDefault();
+    const rows = [...list.children].filter(r => r !== dr.row);
+    const next = rows.find(r => { const b = r.getBoundingClientRect(); return e.clientY < b.top + b.height / 2; });
+    if (next) { if (next !== dr.row.nextElementSibling) list.insertBefore(dr.row, next); } else if (list.lastElementChild !== dr.row) list.appendChild(dr.row);
+    const lb = list.getBoundingClientRect();   // autodesplazamiento cerca de los bordes
+    if (e.clientY < lb.top + 30) list.scrollTop -= 12; else if (e.clientY > lb.bottom - 30) list.scrollTop += 12;
+  });
+  const drop = e => {
+    const dr = S.wlDrag; if (!dr || e.pointerId !== dr.id) return;
+    dr.row.classList.remove('drag'); S.wlDrag = null;
+    wlCur().syms = [...list.children].map(r => r.dataset.sym).filter(Boolean); save();
+    S.wlDragged = true; setTimeout(() => { S.wlDragged = false; }, 50);
+  };
+  list.addEventListener('pointerup', drop); list.addEventListener('pointercancel', drop);
+}
+function wlAction(a) {
+  const L = wlCur();
+  if (a === 'new') {
+    const name = (prompt('Nombre de la nueva lista:', 'Lista ' + (W.lists.length + 1)) || '').trim().slice(0, 40); if (!name) return;
+    const nl = { id: 'w' + Date.now().toString(36), name, syms: [] }; W.lists.push(nl); W.active = nl.id; afterWl();
+  } else if (a === 'rename') {
+    const name = (prompt('Nuevo nombre:', L.name) || '').trim().slice(0, 40); if (!name) return; L.name = name; afterWl();
+  } else if (a === 'delete') {
+    if (W.lists.length < 2) return toast('Debe quedar al menos una lista', 'err');
+    if (!confirm(`¿Eliminar la lista «${L.name}» (${L.syms.length} símbolos)?`)) return;
+    W.lists = W.lists.filter(l => l !== L); W.active = W.lists[0].id; S.wlEdit = false; afterWl();
+  }
+}
+
 /* ---------- Lista de indicadores ---------- */
+const indModalOpen = () => $('#mInd').classList.contains('open');
+function setIndHidden(uid, hidden) {
+  const inst = S.inds.find(i => i.uid === uid); if (!inst) return;
+  inst.hidden = hidden; for (const s of Object.values(inst.series)) s.applyOptions({ visible: !hidden });
+  renderLegend(); if (indModalOpen()) renderIndList(); save();
+}
 function renderIndList() {
   const q = $('#indQ').value.trim().toLowerCase(); let h = '';
+  // Indicadores y scripts activos: ocultar, configurar o quitar
+  const scs = S.scripts.filter(x => x.enabled), removable = S.inds.filter(i => !DEFS[i.type].locked).length + scs.length;
+  if (!q) {
+    h += `<div class="grp flex items-center" style="padding-top:8px">En el gráfico (${S.inds.length + scs.length})` +
+      (removable ? '<button class="btn sm ml-auto" data-act="rmAll" style="text-transform:none;letter-spacing:0;color:var(--down)">Quitar todos</button>' : '') + '</div>';
+    for (const inst of S.inds) {
+      const def = DEFS[inst.type];
+      h += `<div class="row" data-uid="${inst.uid}" style="padding-top:4px;padding-bottom:4px"><div class="flex-1 min-w-0" style="${inst.hidden ? 'opacity:.45' : ''}"><b>${esc(def.label(inst.params))}</b></div>` +
+        `<button class="ind-btn" data-act="eye" title="Mostrar/ocultar">${inst.hidden ? ICON.eyeOff : ICON.eye}</button>` +
+        `<button class="ind-btn" data-act="cfg" title="Configurar">${ICON.gear}</button>` +
+        (def.locked ? '<span class="ind-btn"></span>' : `<button class="ind-btn" data-act="rm" title="Quitar" style="color:var(--down)">${ICON.x}</button>`) + '</div>';
+    }
+    for (const sc of scs) h += `<div class="row" data-sid="${sc.id}" style="padding-top:4px;padding-bottom:4px"><div class="flex-1 min-w-0"><b>${esc(sc.name)}</b> <span class="mute">script</span></div>` +
+      `<button class="ind-btn" data-act="edit" title="Editar">${ICON.edit}</button><button class="ind-btn" data-act="soff" title="Quitar" style="color:var(--down)">${ICON.x}</button></div>`;
+    h += '<div class="grp" style="padding-top:16px">Añadir indicador</div>';
+  }
   for (const g of Object.values(G)) {
     const items = Object.entries(DEFS).filter(([k, d]) => d.group === g && (!q || (d.name + ' ' + d.short + ' ' + k).toLowerCase().includes(q)));
     if (!items.length) continue;
-    h += `<div class="grp">${g}</div>`;
+    h += `<div class="grp"${q ? '' : ' style="padding-top:4px;font-size:10px;opacity:.8"'}>${g}</div>`;
     for (const [k, d] of items) {
       const n = S.inds.filter(i => i.type === k).length;
       h += `<div class="row" data-type="${k}"><div class="flex-1 min-w-0"><b>${esc(d.short)}</b> <span class="mute">${esc(d.name)}</span></div>` +
@@ -1591,12 +1822,36 @@ function bindUI() {
   $('#symQ').addEventListener('input', renderSymList);
   $('#symQ').addEventListener('keydown', e => { if (e.key === 'Enter') { const r = $('#symList [data-sym]'); if (r) { closeModal($('#mSym')); setSymbol(r.dataset.sym); } } });
   $('#symQuotes').addEventListener('click', e => { const b = e.target.closest('[data-q]'); if (b) { S.quote = b.dataset.q; renderSymList(); save(); } });
-  $('#symList').addEventListener('click', e => { const r = e.target.closest('[data-sym]'); if (r) { closeModal($('#mSym')); setSymbol(r.dataset.sym); } });
+  $('#symList').addEventListener('click', e => {
+    const r = e.target.closest('[data-sym]'); if (!r) return;
+    if (S.symAdd || e.target.closest('[data-star]')) { wlToggle(r.dataset.sym); const st = r.querySelector('.star'); if (st) st.classList.toggle('on', wlHas(r.dataset.sym)); return; }
+    closeModal($('#mSym')); if (S.wlOpen) closeModal($('#mWl')); setSymbol(r.dataset.sym);
+  });
+  bindWatchlist();
   setInterval(() => { if (S.symOpen && S.symDirty) { S.symDirty = false; updateSymRows(); } }, 1000);
+  setInterval(() => { if (S.wlOpen && S.wlDirty && !S.wlDrag) { S.wlDirty = false; if (S.wlSort) renderWl(); else updateWlRows(); } }, 600);
+  setInterval(() => { if (Math.floor(Date.now() / 864e5) !== S.doDay) { fetchDayOpens([S.symbol]); if (S.wlOpen) fetchDayOpens(wlCur().syms); } }, 30000);   // nueva sesión diaria (00:00 UTC)
 
   // Indicadores
   $('#indQ').addEventListener('input', renderIndList);
   $('#indList').addEventListener('click', e => {
+    const b = e.target.closest('[data-act]'), row = e.target.closest('[data-uid],[data-sid]');
+    if (b && b.dataset.act === 'rmAll') {
+      if (!confirm('¿Quitar todos los indicadores y scripts del gráfico? (el volumen se mantiene)')) return;
+      for (const i of S.inds.filter(i => !DEFS[i.type].locked)) removeIndicator(i.uid);
+      for (const sc of S.scripts.filter(x => x.enabled)) disableScript(sc);
+      return renderIndList();
+    }
+    if (row && row.dataset.uid) {
+      const uid = row.dataset.uid, inst = S.inds.find(i => i.uid === uid); if (!inst) return; const act = b ? b.dataset.act : 'cfg';
+      if (act === 'rm') removeIndicator(uid); else if (act === 'eye') setIndHidden(uid, !inst.hidden); else openCfg(uid);
+      return;
+    }
+    if (row && row.dataset.sid) {
+      const sc = S.scripts.find(x => x.id === row.dataset.sid); if (!sc) return;
+      if (b && b.dataset.act === 'soff') disableScript(sc); else { closeModal($('#mInd')); openModal('mScript'); editScript(sc.id); }
+      return;
+    }
     const r = e.target.closest('[data-type]'); if (!r) return; const type = r.dataset.type;
     if (DEFS[type].locked) return openCfg(S.inds.find(i => i.type === type).uid);
     const inst = addIndicator(type); if (inst) { toast(`${DEFS[type].label(inst.params)} añadido`, 'ok', 1500); renderIndList(); }
@@ -1608,7 +1863,7 @@ function bindUI() {
       const inst = S.inds.find(i => i.uid === row.dataset.uid); if (!inst) return;
       if (act === 'cfg') openCfg(inst.uid);
       else if (act === 'rm') removeIndicator(inst.uid);
-      else if (act === 'eye') { inst.hidden = !inst.hidden; for (const s of Object.values(inst.series)) s.applyOptions({ visible: !inst.hidden }); renderLegend(); save(); }
+      else if (act === 'eye') setIndHidden(inst.uid, !inst.hidden);
     } else {
       const sc = S.scripts.find(x => x.id === row.dataset.sid); if (!sc) return;
       if (act === 'edit') { openModal('mScript'); editScript(sc.id); } else if (act === 'soff') disableScript(sc);
