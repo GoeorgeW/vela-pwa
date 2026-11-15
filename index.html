@@ -95,6 +95,21 @@
   .lg-btn svg{width:14px;height:14px}
   @media (pointer:coarse){.lg-btn{width:30px;height:28px}.lg-btn svg{width:16px;height:16px}}
   #btnStar.on{color:#f7a600}#btnStar.on svg{fill:#f7a600}
+  /* Trades en vivo */
+  .ag-chip{display:inline-flex;align-items:center;gap:6px;opacity:.55}.ag-chip.on{opacity:1;background:#2a2e39;color:var(--txt)}
+  .ag-dot{width:7px;height:7px;border-radius:50%;background:#787b86;display:inline-block}
+  .ag-dot.live{background:var(--up)}.ag-dot.wait{background:#f7a600}.ag-dot.err{background:var(--down)}.ag-dot.na{background:#4a4e59}
+  .ag-bar{display:flex;height:6px;border-radius:3px;overflow:hidden;margin:5px 0}
+  .ag-row{display:grid;grid-template-columns:62px 48px 14px 1fr 78px;align-items:center;gap:6px;padding:3px 12px;font-size:12.5px;line-height:18px;border-bottom:1px solid rgba(19,23,34,.5);font-variant-numeric:tabular-nums}
+  .ag-row.mid{font-size:13.5px;font-weight:600;padding:5px 12px}
+  .ag-row.big{font-size:15px;font-weight:700;padding:8px 12px;color:#fff}
+  .ag-row.liq{background:rgba(247,166,0,.16);font-weight:700;padding:7px 12px;box-shadow:inset 3px 0 0 #f7a600}
+  .ag-row.liq.lg .ag-liq{color:#ff8a65}.ag-row.liq.sh .ag-liq{color:#69f0ae}
+  .ag-hd{color:var(--mute);font-size:10.5px;background:var(--panel);border-bottom:1px solid var(--line);flex:none}
+  .ag-t{color:var(--mute)}.ag-ex{font-weight:700;font-size:10.5px;letter-spacing:.02em}.ag-p{text-align:right}.ag-u{text-align:right;font-weight:600}
+  .ag-row.big .ag-t{color:rgba(255,255,255,.75)}
+  .ag-liq{grid-column:3 / span 1;white-space:nowrap;font-size:11px}
+  .ag-row.liq{grid-template-columns:62px 48px auto 1fr 78px}
   /* Watchlist */
   .wl-head{display:flex;align-items:center;gap:8px;padding:6px 12px;border-bottom:1px solid var(--line);font-size:11px;color:var(--mute);flex:none}
   .wl-head button{color:var(--mute)}.wl-head button.on{color:var(--txt)}
@@ -200,6 +215,9 @@
       <button id="btnWl" class="tb" title="Watchlist" aria-label="Watchlist">
         <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 3.5h12M2 8h12M2 12.5h7"/></svg><span class="hidden sm:inline">Watchlist</span>
       </button>
+      <button id="btnAg" class="tb" title="Trades en vivo" aria-label="Trades en vivo">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><path d="M9 1.5L3 9h4.5L7 14.5 13 7H8.5z"/></svg><span class="hidden sm:inline">Trades</span>
+      </button>
       <button id="btnInd" class="tb" title="Indicadores" aria-label="Indicadores">
         <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M1.5 11.5l3.5-5 3 3 3.5-6 3 4"/></svg><span class="hidden sm:inline">Indicadores</span>
       </button>
@@ -280,6 +298,33 @@
   <div id="wlHead" class="wl-head num"></div>
   <div id="wlList" class="flex-1 overflow-y-auto"></div>
   <div class="px-3 py-2 text-mute border-t border-line" style="font-size:11px">Cambio desde la apertura diaria (00:00 UTC), igual que TradingView. Toca un símbolo para abrir su gráfico.</div>
+</div></div>
+
+<!-- ===== Trades en vivo ===== -->
+<div id="mAg" class="modal"><div class="sheet lg">
+  <div class="sh-head">
+    <div class="min-w-0"><div>Trades en vivo</div><div id="agPair" class="mute font-normal" style="font-size:11px"></div></div>
+    <button id="agSound" class="btn sm" style="margin-left:auto">🔇 Sonido</button>
+    <button id="agCfgBtn" class="btn sm">Ajustes</button>
+    <button class="sh-x" style="margin-left:0" data-close>✕</button>
+  </div>
+  <div id="agEx" class="flex gap-1.5 px-2 py-2 overflow-x-auto no-sb border-b border-line shrink-0"></div>
+  <div id="agCfg" class="p-3 border-b border-line flex flex-col gap-3 shrink-0" style="display:none">
+    <div class="grid grid-cols-2 gap-2 items-end">
+      <label class="fld">Mínimo por operación (USD)<input id="agMin" class="inp num" type="number" inputmode="decimal" min="1" step="any"></label>
+      <label class="fld">Volumen del sonido<input id="agVol" type="range" min="0" max="100" style="height:34px;accent-color:#2962ff"></label>
+    </div>
+    <div id="agPresets" class="flex gap-1.5 flex-wrap"><button class="chip" data-min="1000">$1K</button><button class="chip" data-min="5000">$5K</button><button class="chip" data-min="10000">$10K</button><button class="chip" data-min="50000">$50K</button><button class="chip" data-min="100000">$100K</button><button class="chip" data-min="500000">$500K</button></div>
+    <div class="flex flex-wrap gap-x-4 gap-y-2">
+      <label class="flex items-center gap-2"><input id="agGroup" type="checkbox" style="width:16px;height:16px;accent-color:#2962ff"> Agrupar órdenes</label>
+      <label class="flex items-center gap-2"><input id="agLiq" type="checkbox" style="width:16px;height:16px;accent-color:#2962ff"> Mostrar liquidaciones</label>
+      <button id="agClear" class="btn sm">Limpiar lista</button>
+    </div>
+    <div class="mute" style="font-size:11px">El color se intensifica con el tamaño: al llegar a 100× el mínimo la fila se resalta por completo. Si no oyes nada en iPhone, quita el modo silencio.</div>
+  </div>
+  <div id="agStats" class="px-3 py-2 border-b border-line shrink-0"></div>
+  <div class="ag-row ag-hd"><span class="ag-t">Hora</span><span class="ag-ex">Exch.</span><span class="ag-s"></span><span class="ag-p">Precio</span><span class="ag-u">Importe</span></div>
+  <div id="agList" class="flex-1 overflow-y-auto num"></div>
 </div></div>
 
 <!-- ===== Buscador de pares ===== -->
@@ -426,7 +471,7 @@ function saveNow() {
       symbol: S.symbol, tf: S.tf, panelOpen: S.panelOpen, lgOpen: S.lgOpen || !!S.lgAuto, quote: S.quote,
       inds: S.inds.map(i => ({ type: i.type, params: i.params, colors: i.colors, hidden: i.hidden })),
       scripts: S.scripts.map(s => ({ id: s.id, name: s.name, code: s.code, enabled: s.enabled })),
-      wl: W, trade: T, form: { margin: $('#oMargin').value, lev: $('#oLev').value },
+      wl: W, aggr: typeof A === 'undefined' ? saved.aggr : A, trade: T, form: { margin: $('#oMargin').value, lev: $('#oLev').value },
     }));
   } catch (e) { /* almacenamiento lleno o bloqueado */ }
 }
@@ -1135,6 +1180,7 @@ async function loadMarket(prevSymbol) {
   S.loading = true; S.noMore = false; S.bars = []; S.tk24 = null; S.prevPx = null; S.hover = null;
   el.loader.classList.add('on');
   el.symLabel.textContent = S.symbol; renderStar();
+  if (S.agOpen && AG.base !== agBase()) { $('#agPair').textContent = `${agBase()} · importes en USD`; $('#agMin').value = agMin(); AG.start(); }
   $$('#tfs .tb').forEach(b => b.classList.toggle('on', b.dataset.tf === S.tf));
   updateSubs(); save();
   try {
@@ -1654,6 +1700,7 @@ function closeModal(m) {
   m.classList.remove('open');
   if (m.id === 'mSym') { S.symOpen = false; S.symAdd = false; updateSubs(); if (S.wlOpen) renderWl(); }
   if (m.id === 'mWl') { S.wlOpen = false; S.wlEdit = false; }
+  if (m.id === 'mAg') { S.agOpen = false; AG.stop(); }
   if (m.id === 'mCfg') S.cfgUid = null;
 }
 
@@ -1911,6 +1958,251 @@ function applyCfg() {
 }
 
 /* =====================================================================
+ * 9b. TRADES EN VIVO: agregador multi-exchange con sonido
+ *     Binance (spot y perpetuo), Bybit, OKX y Coinbase vía WebSockets públicos.
+ * ===================================================================== */
+const AG_EX = [
+  { id: 'BINANCE', label: 'Binance', tag: 'BIN', color: '#f0b90b' },
+  { id: 'BINANCE_F', label: 'Binance Perp', tag: 'BIN·P', color: '#f0b90b' },
+  { id: 'BYBIT', label: 'Bybit Perp', tag: 'BYB·P', color: '#ff9e2c' },
+  { id: 'OKX', label: 'OKX Perp', tag: 'OKX·P', color: '#e0e3eb' },
+  { id: 'COINBASE', label: 'Coinbase', tag: 'CB', color: '#3d7bff' },
+];
+const AG_EXI = Object.fromEntries(AG_EX.map(x => [x.id, x]));
+const A = Object.assign({ ex: { BINANCE: true, BINANCE_F: true, BYBIT: true, OKX: true, COINBASE: true }, min: {}, sound: false, vol: 0.6, liq: true, group: true }, saved.aggr || {});
+const OKX_CT = { BTC: 0.01, ETH: 0.1, SOL: 1, XRP: 100, DOGE: 1000, BNB: 0.01, ADA: 100, AVAX: 1, LINK: 1, LTC: 1, DOT: 1, TRX: 1000, SUI: 1, PEPE: 10000000 };
+const agBase = () => baseOf(S.symbol) || S.symbol;
+const agMinDefault = b => ({ BTC: 10000, ETH: 5000, SOL: 2000, BNB: 2000, XRP: 2000, DOGE: 2000 }[b] || 500);
+const agMin = () => +A.min[agBase()] > 0 ? +A.min[agBase()] : agMinDefault(agBase());
+const fmtK = x => { const a = Math.abs(x); return '$' + (a >= 1e6 ? (x / 1e6).toFixed(a >= 1e7 ? 1 : 2) + 'M' : a >= 1e3 ? (x / 1e3).toFixed(a >= 1e5 ? 0 : 1) + 'K' : x.toFixed(0)); };
+
+// Cada conector traduce los mensajes de su exchange a eventos { ex, side, price, size, time, liq }
+const AG_CONN = {
+  BINANCE: b => ({
+    urls: [`wss://data-stream.binance.vision/ws/${b.toLowerCase()}usdt@aggTrade`, `wss://stream.binance.com:9443/ws/${b.toLowerCase()}usdt@aggTrade`],
+    parse: m => m.e === 'aggTrade' ? [{ side: m.m ? 'sell' : 'buy', price: +m.p, size: +m.q, time: m.T }] : null,
+  }),
+  BINANCE_F: b => ({
+    urls: [`wss://fstream.binance.com/stream?streams=${b.toLowerCase()}usdt@aggTrade/${b.toLowerCase()}usdt@forceOrder`],
+    parse: m => {
+      const d = m.data; if (!d) return null;
+      if (d.e === 'aggTrade') return [{ side: d.m ? 'sell' : 'buy', price: +d.p, size: +d.q, time: d.T }];
+      // forceOrder: orden SELL = liquidación de un largo
+      if (d.e === 'forceOrder') { const o = d.o; return [{ side: o.S === 'SELL' ? 'sell' : 'buy', price: +o.ap || +o.p, size: +o.z || +o.q, time: o.T, liq: true }]; }
+      return null;
+    },
+  }),
+  BYBIT: b => ({
+    urls: ['wss://stream.bybit.com/v5/public/linear'],
+    open: ws => ws.send(JSON.stringify({ op: 'subscribe', args: [`publicTrade.${b}USDT`, `allLiquidation.${b}USDT`] })),
+    ping: ws => ws.send('{"op":"ping"}'),
+    parse: m => {
+      if (!m.topic || !Array.isArray(m.data)) return null;
+      if (m.topic.startsWith('publicTrade.')) return m.data.map(t => ({ side: t.S === 'Buy' ? 'buy' : 'sell', price: +t.p, size: +t.v, time: +t.T }));
+      // allLiquidation: S = lado de la posición liquidada (Buy = largo liquidado → venta forzada)
+      if (m.topic.startsWith('allLiquidation.')) return m.data.map(t => ({ side: t.S === 'Buy' ? 'sell' : 'buy', price: +t.p, size: +t.v, time: +t.T, liq: true }));
+      return null;
+    },
+  }),
+  OKX: (b, ctx) => ({
+    urls: ['wss://ws.okx.com:8443/ws/v5/public'],
+    prepare: async () => {   // tamaño del contrato (1 contrato = ctVal monedas)
+      try {
+        const r = await fetch(`https://www.okx.com/api/v5/public/instruments?instType=SWAP&instId=${b}-USDT-SWAP`);
+        const j = await r.json(), ct = +(j.data && j.data[0] && j.data[0].ctVal);
+        if (ct > 0) { ctx.ct = ct; return true; }
+        if (j.data && !j.data.length) return false;
+      } catch (e) {}
+      ctx.ct = OKX_CT[b]; return !!ctx.ct;
+    },
+    open: ws => ws.send(JSON.stringify({ op: 'subscribe', args: [{ channel: 'trades', instId: `${b}-USDT-SWAP` }, { channel: 'liquidation-orders', instType: 'SWAP' }] })),
+    ping: ws => ws.send('ping'),
+    parse: m => {
+      const ch = m.arg && m.arg.channel; if (!ch || !Array.isArray(m.data)) return null;
+      if (ch === 'trades') return m.data.map(t => ({ side: t.side, price: +t.px, size: +t.sz * ctx.ct, time: +t.ts }));
+      if (ch === 'liquidation-orders') {
+        const out = [];
+        for (const x of m.data) if (x.instId === `${b}-USDT-SWAP`) for (const dt of x.details || [])
+          out.push({ side: dt.posSide === 'long' || (dt.posSide === 'net' && dt.side === 'sell') ? 'sell' : 'buy', price: +dt.bkPx, size: +dt.sz * ctx.ct, time: +dt.ts, liq: true });
+        return out;
+      }
+      return null;
+    },
+  }),
+  COINBASE: b => ({
+    urls: ['wss://ws-feed.exchange.coinbase.com'],
+    open: ws => ws.send(JSON.stringify({ type: 'subscribe', product_ids: [`${b}-USD`], channels: ['matches'] })),
+    // En Coinbase "side" es el lado del maker: el agresor es el contrario
+    parse: (m, ctx) => { if (m.type === 'error') { ctx.na = true; return null; } return m.type === 'match' ? [{ side: m.side === 'buy' ? 'sell' : 'buy', price: +m.price, size: +m.size, time: Date.parse(m.time) }] : null; },
+  }),
+};
+
+const AG = {
+  on: false, gen: 0, base: '', socks: {}, st: {}, pend: new Map(), queue: [], buckets: new Map(), tot: { b: 0, s: 0, lb: 0, ls: 0, n: 0 }, rows: 0,
+  start() {
+    this.stop(); this.on = true; this.gen++; this.base = agBase();
+    this.buckets = new Map(); this.tot = { b: 0, s: 0, lb: 0, ls: 0, n: 0 };
+    $('#agList').innerHTML = `<div class="p-6 text-center mute" id="agEmpty">Esperando operaciones de ${esc(this.base)} ≥ ${fmtK(agMin())}…</div>`; this.rows = 0;
+    for (const x of AG_EX) if (A.ex[x.id]) this.connect(x.id, this.gen); else this.st[x.id] = 'off';
+    renderAgEx(); renderAgStats();
+  },
+  stop() {
+    this.on = false; this.gen++;
+    for (const k in this.socks) { const s = this.socks[k]; clearInterval(s.ping); clearTimeout(s.retry); if (s.ws) { s.ws.onclose = s.ws.onmessage = s.ws.onerror = null; try { s.ws.close(); } catch (e) {} } }
+    this.socks = {}; this.pend.clear(); this.queue = [];
+  },
+  async connect(id, gen, tries = 0, ep = 0) {
+    const ctx = { ct: 1 }, c = AG_CONN[id](this.base, ctx), sock = this.socks[id] = { ctx, tries };
+    this.st[id] = 'wait'; renderAgEx();
+    if (c.prepare && !(await c.prepare())) { if (gen === this.gen) { this.st[id] = 'na'; renderAgEx(); } return; }
+    if (gen !== this.gen) return;
+    let ws; try { ws = new WebSocket(c.urls[ep % c.urls.length]); } catch (e) { return this.retry(id, gen, tries, ep + 1); }
+    sock.ws = ws; let opened = false;
+    ws.onopen = () => {
+      opened = true; this.st[id] = 'live'; renderAgEx();
+      if (c.open) c.open(ws);
+      if (c.ping) sock.ping = setInterval(() => { try { c.ping(ws); } catch (e) {} }, 20000);
+    };
+    ws.onmessage = ev => {
+      if (gen !== this.gen || ev.data === 'pong') return;
+      let m; try { m = JSON.parse(ev.data); } catch (e) { return; }
+      const evs = c.parse(m, ctx);
+      if (ctx.na && this.st[id] !== 'na') { this.st[id] = 'na'; renderAgEx(); }
+      if (evs) for (const e of evs) if (isNum(e.price) && e.size > 0) this.ingest(id, e);
+    };
+    ws.onclose = () => {
+      clearInterval(sock.ping); if (gen !== this.gen) return;
+      if (this.st[id] !== 'na') { this.st[id] = 'err'; renderAgEx(); this.retry(id, gen, opened ? 0 : tries + 1, opened ? ep : ep + 1); }
+    };
+    ws.onerror = () => {};
+  },
+  retry(id, gen, tries, ep) {
+    if (gen !== this.gen) return;
+    const s = this.socks[id] || (this.socks[id] = {});
+    s.retry = setTimeout(() => this.connect(id, gen, tries, ep), Math.min(30000, 1000 * Math.pow(2, tries)));
+  },
+  // Agrupa las operaciones del mismo exchange, lado y milisegundo (una misma orden agresora)
+  ingest(ex, e) {
+    e.ex = ex; e.usd = e.price * e.size;
+    if (!A.group || e.liq) return this.emit(e);
+    const p = this.pend.get(ex);
+    if (p && p.side === e.side && p.time === e.time) { p.usd += e.usd; p.size += e.size; p.price = p.usd / p.size; p.n++; return; }
+    if (p) this.emit(p);
+    e.n = 1; this.pend.set(ex, e); this.kick();
+  },
+  emit(e) {
+    const sec = Math.floor(Date.now() / 1000); let bk = this.buckets.get(sec);
+    if (!bk) { bk = { b: 0, s: 0, lb: 0, ls: 0, n: 0 }; this.buckets.set(sec, bk); if (this.buckets.size > 70) this.buckets.delete(this.buckets.keys().next().value); }
+    if (e.liq) { if (e.side === 'sell') { bk.ls += e.usd; this.tot.ls += e.usd; } else { bk.lb += e.usd; this.tot.lb += e.usd; } }
+    else { bk.n++; this.tot.n++; if (e.side === 'buy') { bk.b += e.usd; this.tot.b += e.usd; } else { bk.s += e.usd; this.tot.s += e.usd; } }
+    const min = agMin();
+    if (e.liq ? A.liq : e.usd >= min) { this.queue.push(e); Snd.trade(e, min); this.kick(); }
+  },
+  kick() { if (!this.raf) this.raf = requestAnimationFrame(() => { this.raf = 0; this.flush(); }); },
+  flush() {
+    const now = Date.now();
+    for (const [ex, p] of this.pend) if (now - p.seen > 40 || !p.seen) { if (!p.seen) { p.seen = now; continue; } this.pend.delete(ex); this.emit(p); }
+    if (this.pend.size) setTimeout(() => this.kick(), 50);
+    if (!this.queue.length) return;
+    const q = this.queue.splice(0), list = $('#agList'), min = agMin();
+    const empty = $('#agEmpty'); if (empty) empty.remove();
+    const html = q.slice(-60).reverse().map(e => agRow(e, min)).join('');
+    list.insertAdjacentHTML('afterbegin', html); this.rows += Math.min(q.length, 60);
+    while (this.rows > 120) { list.lastElementChild.remove(); this.rows--; }
+  },
+};
+function agRow(e, min) {
+  const x = AG_EXI[e.ex], up = e.side === 'buy', r = clamp(Math.log10(e.usd / min) / 2, 0, 1), d = new Date(e.time || Date.now());
+  const t = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}:${String(d.getSeconds()).padStart(2, '0')}`;
+  if (e.liq) {
+    return `<div class="ag-row liq ${up ? 'sh' : 'lg'}"><span class="ag-t">${t}</span><span class="ag-ex" style="color:${x.color}">${x.tag}</span>` +
+      `<span class="ag-liq">💥 LIQ ${up ? 'SHORT' : 'LONG'}</span><span class="ag-p">${fmtN(e.price, guessPrec(e.price))}</span><span class="ag-u">${fmtK(e.usd)}</span></div>`;
+  }
+  const big = r >= 1, bg = up ? `rgba(8,153,129,${(0.06 + r * 0.6).toFixed(2)})` : `rgba(242,54,69,${(0.06 + r * 0.6).toFixed(2)})`;
+  return `<div class="ag-row${big ? ' big' : r >= 0.5 ? ' mid' : ''}" style="background:${bg}"><span class="ag-t">${t}</span><span class="ag-ex" style="color:${x.color}">${x.tag}</span>` +
+    `<span class="ag-s ${up ? 'up' : 'down'}">${up ? '▲' : '▼'}</span><span class="ag-p">${fmtN(e.price, guessPrec(e.price))}</span><span class="ag-u ${big ? '' : up ? 'up' : 'down'}">${fmtK(e.usd)}</span></div>`;
+}
+function renderAgEx() {
+  const box = $('#agEx'); if (!box) return;
+  box.innerHTML = AG_EX.map(x => { const st = A.ex[x.id] ? AG.st[x.id] || 'wait' : 'off';
+    const title = { live: 'Conectado', wait: 'Conectando…', err: 'Reconectando…', na: 'Par no disponible en este exchange', off: 'Desactivado' }[st];
+    return `<button class="chip ag-chip${A.ex[x.id] ? ' on' : ''}" data-ex="${x.id}" title="${title}"><i class="ag-dot ${st}"></i>${x.label}</button>`; }).join('');
+}
+function renderAgStats() {
+  const now = Math.floor(Date.now() / 1000), w = { b: 0, s: 0, lb: 0, ls: 0, n: 0 };
+  for (const [sec, bk] of AG.buckets) if (now - sec < 60) for (const k in w) w[k] += bk[k];
+  const tv = w.b + w.s, pb = tv ? w.b / tv * 100 : 50, delta = w.b - w.s;
+  $('#agStats').innerHTML =
+    `<div class="flex justify-between text-mute" style="font-size:11px"><span>Volumen 60 s · ${(w.n / 60).toFixed(1)} trades/s</span><span>Delta <b class="${delta >= 0 ? 'up' : 'down'}">${delta >= 0 ? '+' : '−'}${fmtK(Math.abs(delta))}</b></span></div>` +
+    `<div class="ag-bar"><div style="width:${pb.toFixed(1)}%;background:var(--up)"></div><div style="flex:1;background:var(--down)"></div></div>` +
+    `<div class="flex justify-between num" style="font-size:12px"><span class="up">Compras ${fmtK(w.b)}</span><span class="down">Ventas ${fmtK(w.s)}</span></div>` +
+    `<div class="flex justify-between num mute" style="font-size:11px;margin-top:2px"><span>💥 Liq. largos <b class="down">${fmtK(w.ls)}</b></span><span>Liq. cortos <b class="up">${fmtK(w.lb)}</b></span></div>`;
+}
+
+// Sonidos sintetizados con Web Audio: compra aguda y ascendente, venta grave y descendente;
+// volumen y duración crecen con el tamaño (escala logarítmica respecto al mínimo). Liquidaciones: tono distinto.
+const Snd = {
+  ctx: null, out: null, last: 0,
+  unlock() {
+    const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return false;
+    if (!this.ctx) { this.ctx = new AC(); this.out = this.ctx.createGain(); this.out.connect(this.ctx.destination); }
+    this.out.gain.value = A.vol; try { this.ctx.resume(); } catch (e) {}
+    return true;
+  },
+  tone(type, f0, f1, t0, dur, peak) {
+    const c = this.ctx, o = c.createOscillator(), g = c.createGain();
+    o.type = type; o.frequency.setValueAtTime(f0, t0); o.frequency.exponentialRampToValueAtTime(f1, t0 + dur * 0.85);
+    g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(peak, t0 + 0.006); g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+    o.connect(g); g.connect(this.out); o.start(t0); o.stop(t0 + dur + 0.02);
+  },
+  trade(e, min) {
+    if (!A.sound || !this.ctx || this.ctx.state !== 'running') return;
+    const t = this.ctx.currentTime, r = clamp(Math.log10(e.usd / min) / 2, 0, 1);
+    if (!e.liq && t - this.last < 0.035 && r < 0.5) return;   // limita la cadencia de los trades pequeños
+    this.last = t;
+    const dur = 0.05 + r * 0.22, peak = 0.05 + r * 0.45;
+    if (e.liq) {
+      this.tone('sawtooth', e.side === 'buy' ? 196 : 147, e.side === 'buy' ? 392 : 73, t, 0.35, 0.35);
+      this.tone('square', e.side === 'buy' ? 392 : 294, e.side === 'buy' ? 784 : 147, t + 0.06, 0.25, 0.12);
+    } else if (e.side === 'buy') {
+      this.tone('triangle', 660, 990, t, dur, peak);
+      if (r >= 0.5) this.tone('sine', 1320, 1760, t + 0.03, dur, peak * 0.5);
+    } else {
+      this.tone('triangle', 440, 293, t, dur, peak);
+      if (r >= 0.5) this.tone('sine', 220, 147, t + 0.03, dur, peak * 0.6);
+    }
+  },
+};
+
+function openAggr() {
+  openModal('mAg'); S.agOpen = true;
+  $('#agPair').textContent = `${agBase()} · importes en USD`;
+  $('#agMin').value = agMin(); $('#agVol').value = Math.round(A.vol * 100);
+  $('#agGroup').checked = A.group; $('#agLiq').checked = A.liq;
+  renderAgSound(); AG.start();
+}
+function renderAgSound() { const b = $('#agSound'); b.textContent = A.sound ? '🔊 Sonido' : '🔇 Sonido'; b.classList.toggle('acc', A.sound); }
+function saveAggr() { save(); }
+function bindAggr() {
+  $('#btnAg').addEventListener('click', openAggr);
+  $('#agSound').addEventListener('click', () => {
+    A.sound = !A.sound;
+    if (A.sound && !Snd.unlock()) { A.sound = false; toast('Este navegador no admite audio Web', 'err'); }
+    if (A.sound) Snd.trade({ side: 'buy', usd: agMin() * 10 }, agMin());   // pitido de prueba
+    renderAgSound(); saveAggr();
+  });
+  $('#agCfgBtn').addEventListener('click', () => { const c = $('#agCfg'); c.style.display = c.style.display === 'none' ? '' : 'none'; });
+  $('#agEx').addEventListener('click', e => { const b = e.target.closest('[data-ex]'); if (!b) return; A.ex[b.dataset.ex] = !A.ex[b.dataset.ex]; saveAggr(); AG.start(); });
+  $('#agMin').addEventListener('change', e => { const v = parseFloat(e.target.value); if (v > 0) { A.min[agBase()] = v; saveAggr(); toast(`Mínimo para ${agBase()}: ${fmtK(v)}`, 'info', 1500); } });
+  $('#agPresets').addEventListener('click', e => { const b = e.target.closest('[data-min]'); if (!b) return; A.min[agBase()] = +b.dataset.min; $('#agMin').value = b.dataset.min; saveAggr(); });
+  $('#agVol').addEventListener('input', e => { A.vol = clamp(+e.target.value / 100, 0, 1); if (Snd.out) Snd.out.gain.value = A.vol; saveAggr(); });
+  $('#agGroup').addEventListener('change', e => { A.group = e.target.checked; saveAggr(); });
+  $('#agLiq').addEventListener('change', e => { A.liq = e.target.checked; saveAggr(); });
+  $('#agClear').addEventListener('click', () => { $('#agList').innerHTML = ''; AG.rows = 0; });
+  setInterval(() => { if (S.agOpen) renderAgStats(); }, 500);
+}
+
+/* =====================================================================
  * 10. EVENTOS DE INTERFAZ
  * ===================================================================== */
 function bindUI() {
@@ -1938,7 +2230,7 @@ function bindUI() {
     if (S.symAdd || e.target.closest('[data-star]')) { wlToggle(r.dataset.sym); const st = r.querySelector('.star'); if (st) st.classList.toggle('on', wlHas(r.dataset.sym)); return; }
     closeModal($('#mSym')); if (S.wlOpen) closeModal($('#mWl')); setSymbol(r.dataset.sym);
   });
-  bindWatchlist();
+  bindWatchlist(); bindAggr();
   setInterval(() => { if (S.symOpen && S.symDirty) { S.symDirty = false; updateSymRows(); } }, 1000);
   setInterval(() => { if (S.wlOpen && S.wlDirty && !S.wlDrag) { S.wlDirty = false; if (S.wlSort) renderWl(); else updateWlRows(); } }, 600);
   setInterval(() => { if (Math.floor(Date.now() / 864e5) !== S.doDay) { fetchDayOpens([S.symbol]); if (S.wlOpen) fetchDayOpens(wlCur().syms); } }, 30000);   // nueva sesión diaria (00:00 UTC)
