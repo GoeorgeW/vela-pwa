@@ -1805,7 +1805,7 @@ function applyCfg() {
 function bindUI() {
   $('#tfs').innerHTML = TFS.map(t => `<button class="tb" data-tf="${t.id}">${t.label}</button>`).join('');
   $('#tfs').addEventListener('click', e => { const b = e.target.closest('[data-tf]'); if (b) setTf(b.dataset.tf); });
-  $('#btnSymbol').addEventListener('click', openSymbols);
+  $('#btnSymbol').addEventListener('click', () => openSymbols(false));
   $('#btnInd').addEventListener('click', () => { $('#indQ').value = ''; renderIndList(); openModal('mInd'); });
   $('#btnScript').addEventListener('click', () => { openModal('mScript'); editScript(S.edId || (S.scripts[0] && S.scripts[0].id)); });
   $('#btnTrade').addEventListener('click', () => setPanel(!S.panelOpen));
