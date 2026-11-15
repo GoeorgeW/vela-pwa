@@ -96,7 +96,7 @@
   @media (pointer:coarse){.lg-btn{width:30px;height:28px}.lg-btn svg{width:16px;height:16px}}
   #btnStar.on{color:#f7a600}#btnStar.on svg{fill:#f7a600}
   /* Trades en vivo */
-  #agChartWrap{height:40dvh;min-height:220px}
+  #agChartWrap{height:46dvh;min-height:240px}
   @media (min-width:1024px){#agChartWrap{height:44%}}
   #agTf .chip{height:22px;padding:0 8px;font-size:11px;background:rgba(42,46,57,.85)}#agTf .chip.on{background:var(--accent)}
   .ag-chip{display:inline-flex;align-items:center;gap:6px;opacity:.55}.ag-chip.on{opacity:1;background:#2a2e39;color:var(--txt)}
@@ -138,11 +138,12 @@
   @keyframes sp{to{transform:rotate(360deg)}}
 
   /* Modales / hojas */
-  .modal{position:fixed;inset:0;z-index:50;display:none;align-items:flex-end;justify-content:center;background:rgba(0,0,0,.55)}
+  .modal{position:fixed;inset:0;z-index:50;display:none;align-items:flex-end;justify-content:center;background:rgba(0,0,0,.55);
+    padding-top:calc(env(safe-area-inset-top) + 8px)}   /* deja libre la barra de estado del iPhone */
   .modal.open{display:flex}
-  .sheet{width:100%;max-width:520px;max-height:88dvh;display:flex;flex-direction:column;background:var(--panel);
+  .sheet{width:100%;max-width:520px;max-height:calc(100dvh - env(safe-area-inset-top) - 8px);display:flex;flex-direction:column;background:var(--panel);
     border:1px solid var(--line);border-bottom:0;border-radius:14px 14px 0 0;padding-bottom:env(safe-area-inset-bottom);overflow:hidden}
-  .sheet.lg{max-width:860px;height:94dvh;max-height:94dvh}
+  .sheet.lg{max-width:860px;height:calc(100dvh - env(safe-area-inset-top) - 8px)}
   @media (min-width:640px){.modal{align-items:center}.sheet{border-bottom:1px solid var(--line);border-radius:10px}.sheet.lg{height:86dvh}}
   .sh-head{display:flex;align-items:center;gap:8px;padding:10px 12px;border-bottom:1px solid var(--line);font-size:15px;font-weight:600;flex:none}
   .sh-x{margin-left:auto;width:30px;height:30px;border-radius:6px;display:inline-flex;align-items:center;justify-content:center;color:var(--mute)}
@@ -2153,10 +2154,11 @@ function agChartInit() {
   c.priceScale('vol').applyOptions({ scaleMargins: { top: 0.82, bottom: 0 } });
   AGC.cvdS = c.addSeries(LC.LineSeries, { color: '#26c6da', lineWidth: 2, priceFormat: { type: 'volume' }, priceLineVisible: false, crosshairMarkerVisible: false, title: 'CVD' }, 1);
   AGC.markers = LC.createSeriesMarkers(AGC.candle, []);
+  try { AGC.wm = LC.createTextWatermark(c.panes()[0], { horzAlign: 'center', vertAlign: 'center', lines: [{ text: '', color: 'rgba(120,123,134,.13)', fontSize: 44, fontStyle: 'bold' }] }); } catch (e) {}
   try { c.panes()[0].setStretchFactor(3); c.panes()[1].setStretchFactor(1); } catch (e) {}
 }
 function agChartReset() {
-  AGC.gen++; AGC.live = new Map(); AGC.view = []; AGC.hist = []; AGC.cvd = 0; AGC.liqs = [];
+  AGC.gen++; AGC.live = new Map(); AGC.view = []; AGC.hist = []; AGC.cvd = 0; AGC.liqs = []; agWatermark();
   agRebuild(); agBackfill(AGC.gen);
 }
 // Histórico previo de precio (velas de 1 s o 1 m de Binance spot); volumen y CVD se acumulan en vivo
@@ -2230,7 +2232,8 @@ function agDraw() {
   AGC.dirty = false;
   const p = v.length ? v[v.length - 1].close : null; if (isNum(p)) $('#agPx').textContent = fmtN(p, guessPrec(p));
 }
-function renderAgTf() { $('#agTf').innerHTML = AG_TFS.map(t => `<button class="chip${t === AGC.tf ? ' on' : ''}" data-tf="${t}">${t < 60 ? t + 's' : t / 60 + 'm'}</button>`).join(''); }
+function agWatermark() { try { AGC.wm && AGC.wm.applyOptions({ lines: [{ text: `${AG.base}USD · ${AGC.tf < 60 ? AGC.tf + 's' : AGC.tf / 60 + 'm'}`, color: 'rgba(120,123,134,.13)', fontSize: 44, fontStyle: 'bold' }] }); } catch (e) {} }
+function renderAgTf() { agWatermark(); $('#agTf').innerHTML = AG_TFS.map(t => `<button class="chip${t === AGC.tf ? ' on' : ''}" data-tf="${t}">${t < 60 ? t + 's' : t / 60 + 'm'}</button>`).join(''); }
 
 function renderAgEx() {
   const box = $('#agEx'); if (!box) return;
@@ -2479,7 +2482,17 @@ function boot() {
   Feed.connect();
   loadMarket();
   if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
-    window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(() => {}));
+    // Al publicar una versión nueva, el service worker nuevo toma el control y la app se recarga sola
+    let hadSW = !!navigator.serviceWorker.controller, reloading = false;
+    navigator.serviceWorker.getRegistration().then(r => { if (r && r.active) hadSW = true; }).catch(() => {});
+    // solo se recarga si ya había una versión instalada (la primera instalación no recarga)
+    navigator.serviceWorker.addEventListener('controllerchange', () => { if (hadSW && !reloading) { reloading = true; saveNow(); location.reload(); } });
+    const reg = () => navigator.serviceWorker.register('./sw.js').then(r => {
+      const check = () => r.update().catch(() => {});
+      document.addEventListener('visibilitychange', () => { if (!document.hidden) check(); });
+      setInterval(check, 5 * 60000);
+    }).catch(() => {});
+    if (document.readyState === 'complete') reg(); else window.addEventListener('load', reg);
   }
 }
 if (/[?&]debug\b/.test(location.search)) window.__vela = { TA, NT, S, T, DEFS, Feed, libOK, get chart() { return chart; } };   // solo para depuración
