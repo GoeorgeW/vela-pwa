@@ -96,6 +96,9 @@
   @media (pointer:coarse){.lg-btn{width:30px;height:28px}.lg-btn svg{width:16px;height:16px}}
   #btnStar.on{color:#f7a600}#btnStar.on svg{fill:#f7a600}
   /* Trades en vivo */
+  #agChartWrap{height:40dvh;min-height:220px}
+  @media (min-width:1024px){#agChartWrap{height:44%}}
+  #agTf .chip{height:22px;padding:0 8px;font-size:11px;background:rgba(42,46,57,.85)}#agTf .chip.on{background:var(--accent)}
   .ag-chip{display:inline-flex;align-items:center;gap:6px;opacity:.55}.ag-chip.on{opacity:1;background:#2a2e39;color:var(--txt)}
   .ag-dot{width:7px;height:7px;border-radius:50%;background:#787b86;display:inline-block}
   .ag-dot.live{background:var(--up)}.ag-dot.wait{background:#f7a600}.ag-dot.err{background:var(--down)}.ag-dot.na{background:#4a4e59}
@@ -301,7 +304,7 @@
 </div></div>
 
 <!-- ===== Trades en vivo ===== -->
-<div id="mAg" class="modal"><div class="sheet lg">
+<div id="mAg" class="modal"><div class="sheet lg" style="max-width:1200px">
   <div class="sh-head">
     <div class="min-w-0"><div>Trades en vivo</div><div id="agPair" class="mute font-normal" style="font-size:11px"></div></div>
     <button id="agSound" class="btn sm" style="margin-left:auto">🔇 Sonido</button>
@@ -321,6 +324,12 @@
       <button id="agClear" class="btn sm">Limpiar lista</button>
     </div>
     <div class="mute" style="font-size:11px">El color se intensifica con el tamaño: al llegar a 100× el mínimo la fila se resalta por completo. Si no oyes nada en iPhone, quita el modo silencio.</div>
+  </div>
+  <div id="agChartWrap" class="relative shrink-0 border-b border-line">
+    <div id="agChart" class="absolute inset-0"></div>
+    <div class="absolute flex items-center gap-1.5" style="top:6px;left:8px;z-index:3">
+      <div id="agTf" class="flex gap-1"></div><span id="agPx" class="num font-semibold" style="font-size:13px;margin-left:4px"></span>
+    </div>
   </div>
   <div id="agStats" class="px-3 py-2 border-b border-line shrink-0"></div>
   <div class="ag-row ag-hd"><span class="ag-t">Hora</span><span class="ag-ex">Exch.</span><span class="ag-s"></span><span class="ag-p">Precio</span><span class="ag-u">Importe</span></div>
@@ -2044,7 +2053,7 @@ const AG = {
     this.buckets = new Map(); this.tot = { b: 0, s: 0, lb: 0, ls: 0, n: 0 };
     $('#agList').innerHTML = `<div class="p-6 text-center mute" id="agEmpty">Esperando operaciones de ${esc(this.base)} ≥ ${fmtK(agMin())}…</div>`; this.rows = 0;
     for (const x of AG_EX) if (A.ex[x.id]) this.connect(x.id, this.gen); else this.st[x.id] = 'off';
-    renderAgEx(); renderAgStats();
+    renderAgEx(); renderAgStats(); agChartReset();
   },
   stop() {
     this.on = false; this.gen++;
@@ -2095,6 +2104,7 @@ const AG = {
     if (!bk) { bk = { b: 0, s: 0, lb: 0, ls: 0, n: 0 }; this.buckets.set(sec, bk); if (this.buckets.size > 70) this.buckets.delete(this.buckets.keys().next().value); }
     if (e.liq) { if (e.side === 'sell') { bk.ls += e.usd; this.tot.ls += e.usd; } else { bk.lb += e.usd; this.tot.lb += e.usd; } }
     else { bk.n++; this.tot.n++; if (e.side === 'buy') { bk.b += e.usd; this.tot.b += e.usd; } else { bk.s += e.usd; this.tot.s += e.usd; } }
+    if (e.liq) agLiq(e); else { agTrade(e); this.kick(); }
     const min = agMin();
     if (e.liq ? A.liq : e.usd >= min) { this.queue.push(e); Snd.trade(e, min); this.kick(); }
   },
@@ -2103,6 +2113,7 @@ const AG = {
     const now = Date.now();
     for (const [ex, p] of this.pend) if (now - p.seen > 40 || !p.seen) { if (!p.seen) { p.seen = now; continue; } this.pend.delete(ex); this.emit(p); }
     if (this.pend.size) setTimeout(() => this.kick(), 50);
+    agDraw();
     if (!this.queue.length) return;
     const q = this.queue.splice(0), list = $('#agList'), min = agMin();
     const empty = $('#agEmpty'); if (empty) empty.remove();
@@ -2122,6 +2133,105 @@ function agRow(e, min) {
   return `<div class="ag-row${big ? ' big' : r >= 0.5 ? ' mid' : ''}" style="background:${bg}"><span class="ag-t">${t}</span><span class="ag-ex" style="color:${x.color}">${x.tag}</span>` +
     `<span class="ag-s ${up ? 'up' : 'down'}">${up ? '▲' : '▼'}</span><span class="ag-p">${fmtN(e.price, guessPrec(e.price))}</span><span class="ag-u ${big ? '' : up ? 'up' : 'down'}">${fmtK(e.usd)}</span></div>`;
 }
+/* ---------- Gráfico del agregador: velas de todos los exchanges + volumen + CVD + liquidaciones ---------- */
+const AG_TFS = [1, 5, 15, 60];
+const AGC = { chart: null, tf: AG_TFS.includes(A.tf) ? A.tf : 5, live: new Map(), view: [], hist: [], cvd: 0, liqs: [], dirty: false, full: false, gen: 0 };
+const agTz = () => -new Date().getTimezoneOffset() * 60;
+function agChartInit() {
+  if (AGC.chart || !LC) return;
+  const c = AGC.chart = LC.createChart($('#agChart'), {
+    autoSize: true,
+    layout: { background: { type: 'solid', color: C.bg }, textColor: '#b2b5be', fontSize: 10, panes: { separatorColor: C.line, enableResize: false } },
+    grid: { vertLines: { color: 'rgba(42,46,57,.4)' }, horzLines: { color: 'rgba(42,46,57,.4)' } },
+    crosshair: { mode: LC.CrosshairMode.Normal },
+    rightPriceScale: { borderColor: C.line, scaleMargins: { top: 0.08, bottom: 0.22 } },
+    timeScale: { borderColor: C.line, timeVisible: true, secondsVisible: true, rightOffset: 4, barSpacing: 6, minBarSpacing: 0.5 },
+    localization: { locale: 'es-ES' },
+  });
+  AGC.candle = c.addSeries(LC.CandlestickSeries, { upColor: C.up, downColor: C.down, borderVisible: false, wickUpColor: C.up, wickDownColor: C.down });
+  AGC.vol = c.addSeries(LC.HistogramSeries, { priceScaleId: 'vol', priceFormat: { type: 'volume' }, lastValueVisible: false, priceLineVisible: false });
+  c.priceScale('vol').applyOptions({ scaleMargins: { top: 0.82, bottom: 0 } });
+  AGC.cvdS = c.addSeries(LC.LineSeries, { color: '#26c6da', lineWidth: 2, priceFormat: { type: 'volume' }, priceLineVisible: false, crosshairMarkerVisible: false, title: 'CVD' }, 1);
+  AGC.markers = LC.createSeriesMarkers(AGC.candle, []);
+  try { c.panes()[0].setStretchFactor(3); c.panes()[1].setStretchFactor(1); } catch (e) {}
+}
+function agChartReset() {
+  AGC.gen++; AGC.live = new Map(); AGC.view = []; AGC.hist = []; AGC.cvd = 0; AGC.liqs = [];
+  agRebuild(); agBackfill(AGC.gen);
+}
+// Histórico previo de precio (velas de 1 s o 1 m de Binance spot); volumen y CVD se acumulan en vivo
+async function agBackfill(gen) {
+  const tf = AGC.tf;
+  try {
+    const k = await fetchKlines(AG.base + 'USDT', tf >= 60 ? '1m' : '1s');
+    if (gen !== AGC.gen || tf !== AGC.tf) return;
+    const out = [];
+    for (const b of k) {
+      const t = Math.floor(b.time / tf) * tf, l = out[out.length - 1];
+      if (l && l.time === t) { l.high = Math.max(l.high, b.high); l.low = Math.min(l.low, b.low); l.close = b.close; }
+      else out.push({ time: t, open: b.open, high: b.high, low: b.low, close: b.close });
+    }
+    AGC.hist = out; AGC.full = true; AG.kick();
+  } catch (e) { /* sin histórico: el gráfico empieza con los datos en vivo */ }
+}
+function agTrade(e) {
+  const sec = Math.floor((e.time || Date.now()) / 1000), d = e.side === 'buy' ? e.usd : -e.usd;
+  let L = AGC.live.get(sec);
+  if (!L) { L = { o: e.price, h: e.price, l: e.price, c: e.price, b: 0, s: 0 }; AGC.live.set(sec, L); if (AGC.live.size > 7200) AGC.live.delete(AGC.live.keys().next().value); }
+  else { if (e.price > L.h) L.h = e.price; if (e.price < L.l) L.l = e.price; L.c = e.price; }
+  if (d > 0) L.b += d; else L.s -= d;
+  AGC.cvd += d; agPut(sec, e.price, d);
+  AGC.dirty = true;
+}
+function agPut(sec, price, d) {   // añade a la vela del timeframe actual
+  const t = Math.floor(sec / AGC.tf) * AGC.tf, v = AGC.view; let b = v[v.length - 1];
+  if (!b || t > b.time) { b = { time: t, open: price, high: price, low: price, close: price, b: 0, s: 0, cvd: 0 }; v.push(b); if (v.length > 4000) { v.shift(); AGC.full = true; } }
+  else if (t < b.time) { let i = v.length - 1; while (i > 0 && v[i].time > t) i--; if (v[i].time !== t) return; b = v[i]; if (price > b.high) b.high = price; if (price < b.low) b.low = price; if (d > 0) b.b += d; else b.s -= d; return; }
+  if (price > b.high) b.high = price; if (price < b.low) b.low = price; b.close = price;
+  if (d > 0) b.b += d; else b.s -= d; b.cvd = AGC.cvd;
+}
+function agLiq(e) {
+  if (e.usd < agMin()) return;
+  AGC.liqs.push({ sec: Math.floor((e.time || Date.now()) / 1000), side: e.side, usd: e.usd });
+  if (AGC.liqs.length > 80) AGC.liqs.shift();
+  agMarkers();
+}
+function agMarkers() {
+  if (!AGC.markers) return; const tz = agTz();
+  AGC.markers.setMarkers(AGC.liqs.map(l => ({ time: Math.floor(l.sec / AGC.tf) * AGC.tf + tz, position: l.side === 'sell' ? 'belowBar' : 'aboveBar',
+    color: l.side === 'sell' ? '#ff8a65' : '#69f0ae', shape: 'circle', size: clamp(0.4 + Math.log10(l.usd / agMin()) * 0.35, 0.4, 1.2), text: l.usd >= agMin() * 10 ? fmtK(l.usd) : '' })).sort((a, b) => a.time - b.time));
+}
+// Reconstruye las velas del timeframe elegido a partir de los datos de 1 s acumulados
+function agRebuild() {
+  AGC.view = []; let cvd = 0;
+  for (const sec of [...AGC.live.keys()].sort((a, b) => a - b)) {
+    const L = AGC.live.get(sec), t = Math.floor(sec / AGC.tf) * AGC.tf, v = AGC.view; let b = v[v.length - 1];
+    cvd += L.b - L.s;
+    if (!b || b.time !== t) { b = { time: t, open: L.o, high: L.h, low: L.l, close: L.c, b: 0, s: 0 }; v.push(b); }
+    else { b.high = Math.max(b.high, L.h); b.low = Math.min(b.low, L.l); b.close = L.c; }
+    b.b += L.b; b.s += L.s; b.cvd = cvd;
+  }
+  AGC.cvd = cvd; AGC.full = true; AGC.dirty = true;
+}
+function agDraw() {
+  if (!AGC.chart || !AGC.dirty && !AGC.full) return;
+  const tz = agTz(), v = AGC.view, toC = b => ({ time: b.time + tz, open: b.open, high: b.high, low: b.low, close: b.close });
+  const toV = b => ({ time: b.time + tz, value: b.b + b.s, color: b.b >= b.s ? 'rgba(8,153,129,.6)' : 'rgba(242,54,69,.6)' });
+  if (AGC.full) {
+    const first = v.length ? v[0].time : Infinity, h = AGC.hist.filter(b => b.time < first);
+    AGC.candle.setData(h.concat(v).map(toC)); AGC.vol.setData(v.map(toV)); AGC.cvdS.setData(v.map(b => ({ time: b.time + tz, value: b.cvd })));
+    agMarkers(); AGC.full = false;
+  } else {
+    for (let i = Math.max(0, v.length - 2); i < v.length; i++) {
+      const b = v[i];
+      try { AGC.candle.update(toC(b)); AGC.vol.update(toV(b)); AGC.cvdS.update({ time: b.time + tz, value: b.cvd }); } catch (e) { AGC.full = true; }
+    }
+  }
+  AGC.dirty = false;
+  const p = v.length ? v[v.length - 1].close : null; if (isNum(p)) $('#agPx').textContent = fmtN(p, guessPrec(p));
+}
+function renderAgTf() { $('#agTf').innerHTML = AG_TFS.map(t => `<button class="chip${t === AGC.tf ? ' on' : ''}" data-tf="${t}">${t < 60 ? t + 's' : t / 60 + 'm'}</button>`).join(''); }
+
 function renderAgEx() {
   const box = $('#agEx'); if (!box) return;
   box.innerHTML = AG_EX.map(x => { const st = A.ex[x.id] ? AG.st[x.id] || 'wait' : 'off';
@@ -2179,7 +2289,7 @@ function openAggr() {
   $('#agPair').textContent = `${agBase()} · importes en USD`;
   $('#agMin').value = agMin(); $('#agVol').value = Math.round(A.vol * 100);
   $('#agGroup').checked = A.group; $('#agLiq').checked = A.liq;
-  renderAgSound(); AG.start();
+  renderAgSound(); renderAgTf(); agChartInit(); AG.start();
 }
 function renderAgSound() { const b = $('#agSound'); b.textContent = A.sound ? '🔊 Sonido' : '🔇 Sonido'; b.classList.toggle('acc', A.sound); }
 function saveAggr() { save(); }
@@ -2198,6 +2308,8 @@ function bindAggr() {
   $('#agVol').addEventListener('input', e => { A.vol = clamp(+e.target.value / 100, 0, 1); if (Snd.out) Snd.out.gain.value = A.vol; saveAggr(); });
   $('#agGroup').addEventListener('change', e => { A.group = e.target.checked; saveAggr(); });
   $('#agLiq').addEventListener('change', e => { A.liq = e.target.checked; saveAggr(); });
+  $('#agTf').addEventListener('click', e => { const b = e.target.closest('[data-tf]'); if (!b) return; AGC.tf = +b.dataset.tf; A.tf = AGC.tf; saveAggr(); renderAgTf();
+    AGC.gen++; AGC.hist = []; agRebuild(); agBackfill(AGC.gen); AG.kick(); AGC.chart.timeScale().scrollToRealTime(); });
   $('#agClear').addEventListener('click', () => { $('#agList').innerHTML = ''; AG.rows = 0; });
   setInterval(() => { if (S.agOpen) renderAgStats(); }, 500);
 }

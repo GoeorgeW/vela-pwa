@@ -4,7 +4,7 @@
  * - Datos de Binance (REST y WebSocket): siempre red, nunca se cachean.
  * Cambia VERSION al publicar una nueva versión para renovar la caché.
  */
-const VERSION = 'vela-v5';
+const VERSION = 'vela-v6';
 const SHELL = ['./', './index.html', './manifest.json', './icon-192.png', './icon-512.png'];
 const CDN = [
   'https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4.3.5/dist/index.global.js',
