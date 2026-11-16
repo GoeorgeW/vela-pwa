@@ -110,6 +110,15 @@
   button.lq-row:hover{background:var(--hover)}.lq-row.on{background:rgba(41,98,255,.12);box-shadow:inset 3px 0 0 var(--accent)}
   .lq-bar{display:flex;height:6px;border-radius:3px;overflow:hidden}
   .lq-wall{padding:6px 12px;font-size:13px;line-height:1.45}
+  .lq-lv{position:relative;display:grid;grid-template-columns:1.2fr 1fr 0.9fr 0.9fr 64px;gap:6px;align-items:center;padding:3px 12px;font-size:12.5px;text-align:right;max-width:760px}
+  .lq-lv>span{position:relative;z-index:1}.lq-lv>span:first-of-type{text-align:left;font-weight:600}
+  .lq-lv .lq-depth{position:absolute;top:1px;bottom:1px;right:0;z-index:0}
+  .lq-lv.b .lq-depth{background:rgba(8,153,129,.14)}.lq-lv.a .lq-depth{background:rgba(242,54,69,.14)}
+  .lq-lv.wall{font-weight:700}.lq-lv.wall>span:nth-child(4){color:#ffd54f}
+  .lq-lv.hd{color:var(--mute);font-size:10.5px;border-bottom:1px solid var(--line)}
+  .lq-exbar{display:flex;height:7px;border-radius:2px;overflow:hidden;background:#2a2e39}.lq-exbar i{display:block;height:100%}
+  .lq-spread{display:flex;gap:12px;align-items:center;justify-content:space-between;padding:7px 12px;background:#1a1e29;border-block:1px solid var(--line);font-size:13px;max-width:760px}
+  .lq-legend{display:flex;flex-wrap:wrap;gap:10px;padding:8px 12px;font-size:11px;color:#b2b5be;max-width:760px}.lq-legend i{display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:4px}
   /* Trades en vivo */
   #agChartWrap{height:46dvh;min-height:240px}
   @media (min-width:1024px){#agChartWrap{height:44%}}
@@ -339,8 +348,16 @@
   </div>
   <div class="flex gap-1.5 px-2 py-2 overflow-x-auto no-sb border-b border-line shrink-0"><div id="lqRange" class="flex gap-1.5"></div><span class="sep" style="align-self:center"></span><div id="lqEx" class="flex gap-1.5"></div></div>
   <div class="flex-1 overflow-y-auto min-h-0">
-    <canvas id="lqHeat" style="display:block;width:100%;height:46dvh;min-height:260px"></canvas>
-    <canvas id="lqImb" style="display:block;width:100%;height:58px;border-top:1px solid var(--line)"></canvas>
+    <div id="lqTabs" class="flex border-b border-line"><button class="tab on" data-tab="heat">Heatmap</button><button class="tab" data-tab="book">Orderbook</button></div>
+    <div id="lqHeatView">
+      <canvas id="lqHeat" style="display:block;width:100%;height:46dvh;min-height:260px"></canvas>
+      <canvas id="lqImb" style="display:block;width:100%;height:58px;border-top:1px solid var(--line)"></canvas>
+    </div>
+    <div id="lqBookView" style="display:none">
+      <canvas id="lqDepth" style="display:block;width:100%;height:130px"></canvas>
+      <div class="flex items-center gap-1.5 px-2 py-2 border-y border-line overflow-x-auto no-sb"><span class="mute" style="font-size:11px;flex:none">Agrupar</span><div id="lqGrp" class="flex gap-1.5"></div></div>
+      <div id="lqLadder" class="num"></div>
+    </div>
     <div id="lqStats" class="pb-4"></div>
   </div>
 </div></div>
@@ -482,11 +499,12 @@ const POPULAR = ['BTCUSDT', 'ETHUSDT', 'SOLUSDT', 'BNBUSDT', 'XRPUSDT', 'DOGEUSD
 const MAX_BARS = 6000;
 const LS_KEY = 'vela.v1';
 
-const isHL = s => typeof s === 'string' && s.includes(':');   // mercado de Hyperliquid (p. ej. "xyz:NVDA")
+const isExt = s => typeof s === 'string' && /^(cboe|dvol):/.test(s);   // índices de volatilidad (Cboe / Deribit)
+const isHL = s => typeof s === 'string' && s.includes(':') && !isExt(s);   // mercado de Hyperliquid (p. ej. "xyz:NVDA")
 const hlName = s => s.slice(s.indexOf(':') + 1);
-const dispSym = s => isHL(s) ? hlName(s) : s;
-const quoteOf = sym => isHL(sym) ? 'USD' : QUOTES.find(q => sym.endsWith(q) && sym.length > q.length) || '';
-const baseOf  = sym => { if (isHL(sym)) return hlName(sym); const q = quoteOf(sym); return q ? sym.slice(0, -q.length) : sym; };
+const dispSym = s => isExt(s) ? (EXTM.get(s) || {}).name || hlName(s) : isHL(s) ? hlName(s) : s;
+const quoteOf = sym => isExt(sym) ? '' : isHL(sym) ? 'USD' : QUOTES.find(q => sym.endsWith(q) && sym.length > q.length) || '';
+const baseOf  = sym => { if (isExt(sym)) return dispSym(sym); if (isHL(sym)) return hlName(sym); const q = quoteOf(sym); return q ? sym.slice(0, -q.length) : sym; };
 const SYM_RE = /^([a-z0-9]{1,12}:[A-Za-z0-9._-]{1,24}|[A-Z0-9]{3,20})$/;
 const guessPrec = p => { p = Math.abs(p); if (!p || !isFinite(p)) return 2; if (p >= 10) return 2; if (p >= 1) return 3; if (p >= 0.1) return 4; if (p >= 0.01) return 5; if (p >= 0.0001) return 6; return 8; };
 const fmtN = (x, d = 2) => isNum(x) ? x.toLocaleString('en-US', { minimumFractionDigits: d, maximumFractionDigits: d }) : '—';
@@ -804,6 +822,28 @@ const DEFS = {
   WR: {
     short: 'W%R', name: 'Williams %R', group: G.osc, params: [P.int('period', 'Período', 14, 2, 200)],
     plots: [{ k: 'v', title: '%R', color: '#e040fb', width: 2 }], levels: [-20, -80], calc: (d, p) => ({ v: TA.wr(d.high, d.low, d.close, p.period) }), label: p => `W%R ${p.period}`,
+  },
+  HV: {
+    short: 'HV', name: 'Volatilidad histórica (anualizada, %)', group: G.vol, params: [P.int('period', 'Período', 20, 2, 500), P.int('days', 'Días de mercado por año', 365, 200, 366)],
+    plots: [{ k: 'v', title: 'HV', color: '#ff9800', width: 2 }],
+    calc(d, p) {
+      const c = d.close, r = c.map((x, i) => i && c[i - 1] > 0 && x > 0 ? Math.log(x / c[i - 1]) : null), sd = TA.stdev(r, p.period);
+      const bpy = p.days * 86400 / curTf().sec;   // velas por año
+      return { v: sd.map(x => isNum(x) ? x * Math.sqrt(bpy) * 100 : null) };
+    },
+    label: p => `HV ${p.period}`,
+  },
+  BBW: {
+    short: 'BBW', name: 'Ancho de Bandas de Bollinger (volatilidad, %)', group: G.vol, params: [P.int('period', 'Período', 20, 2, 500), P.num('mult', 'Desv. estándar', 2, 0.1, 10, 0.1), P.src()],
+    plots: [{ k: 'v', title: 'BBW', color: '#26c6da', width: 2 }],
+    calc: (d, p) => { const b = TA.bb(d.src(p.source), p.period, p.mult); return { v: b.middle.map((m, i) => isNum(m) && m ? (b.upper[i] - b.lower[i]) / m * 100 : null) }; },
+    label: p => `BBW ${p.period} ${p.mult}`,
+  },
+  ATRP: {
+    short: 'ATR %', name: 'ATR en % del precio (volatilidad)', group: G.vol, params: [P.int('period', 'Período', 14, 1, 200)],
+    plots: [{ k: 'v', title: 'ATR%', color: '#ff5252', width: 2 }],
+    calc: (d, p) => { const a = TA.atr(d.high, d.low, d.close, p.period); return { v: a.map((x, i) => isNum(x) && d.close[i] ? x / d.close[i] * 100 : null) }; },
+    label: p => `ATR% ${p.period}`,
   },
   ATR: {
     short: 'ATR', name: 'Rango verdadero medio', group: G.osc, priceUnits: true, params: [P.int('period', 'Período', 14, 1, 200)],
@@ -1149,13 +1189,14 @@ async function api(path, timeout = 12000) {
 }
 const parseK = k => ({ time: Math.floor(k[0] / 1000), open: +k[1], high: +k[2], low: +k[3], close: +k[4], volume: +k[5] });
 async function fetchKlines(sym, tf, endMs) {
+  if (isExt(sym)) return extCandles(sym, tf, endMs);
   if (isHL(sym)) return hlCandles(sym, tf, endMs);
   const j = await api(`/api/v3/klines?symbol=${sym}&interval=${tf}&limit=1000${endMs ? '&endTime=' + endMs : ''}`);
   if (!Array.isArray(j)) throw new Error('Respuesta no válida');
   return j.map(parseK);
 }
 // Velas del timeframe: nativas de Binance o construidas agrupando velas base (varias páginas si hace falta)
-const planOf = (sym, d) => isHL(sym) ? hlPlan(d) : { api: d.api, n: d.n };
+const planOf = (sym, d) => isExt(sym) ? extPlan(sym, d) : isHL(sym) ? hlPlan(d) : { api: d.api, n: d.n };
 const curPlan = () => planOf(S.symbol, curTf()) || { api: curTf().api, n: curTf().n };
 async function fetchBars(sym, d, endMs) {
   const pl = planOf(sym, d); if (!pl) throw Object.assign(new Error('Intervalo no disponible'), { fatal: true });
@@ -1181,7 +1222,7 @@ async function fetchBars(sym, d, endMs) {
   return out;
 }
 async function fetchPrecision(sym) {
-  if (isHL(sym)) return null;
+  if (isHL(sym) || isExt(sym)) return null;
   try {
     const j = await api('/api/v3/exchangeInfo?symbol=' + sym, 8000);
     const f = j.symbols[0].filters.find(x => x.filterType === 'PRICE_FILTER'), ts = parseFloat(f.tickSize);
@@ -1287,7 +1328,7 @@ function onTrade(p, ms) {
   const d = curTf(), bt = bucketOf(d, Math.floor(ms / 1000)), last = bars[n - 1];
   if (bt === last.time) { last.close = p; if (p > last.high) last.high = p; if (p < last.low) last.low = p; }
   else if (bt > last.time) {
-    if (bt !== nextBucket(d, last.time)) return;
+    if (bt !== nextBucket(d, last.time) && !isExt(S.symbol)) return;   // índices diarios: tras fines de semana y festivos
     candle.update(chartBar(last)); bars.push({ time: bt, open: p, high: p, low: p, close: p, volume: 0 }); S.newBar = true;
     if (curPlan().n !== 1) S.tail = new Map();
   } else return;
@@ -1301,7 +1342,12 @@ async function loadMarket(prevSymbol) {
   S.loading = true; S.noMore = false; S.bars = []; S.tk24 = null; S.prevPx = null; S.hover = null;
   el.loader.classList.add('on');
   el.symLabel.textContent = dispSym(S.symbol); renderStar();
-  if (isHL(S.symbol) && !hlPlan(curTf())) { toast('Este mercado no tiene velas de segundos: se usa 1m', 'info'); S.tf = '1m'; }
+  clearInterval(S.extTimer);
+  if (!planOf(S.symbol, curTf())) {
+    const daily = S.symbol.startsWith('cboe:');
+    toast(daily ? `${dispSym(S.symbol)} solo tiene datos diarios: se usa 1D` : 'Este mercado no tiene velas de segundos: se usa 1m', 'info');
+    S.tf = daily ? '1d' : '1m';
+  }
   if (S.agOpen && AG.base !== agBase()) { $('#agPair').textContent = `${agBase()} · importes en USD`; $('#agMin').value = agMin(); AG.start(); }
   renderTfBar();
   updateSubs(); save();
@@ -1328,6 +1374,11 @@ async function loadMarket(prevSymbol) {
     renderBars(true);
     el.loader.classList.remove('on');
     renderOrderInfo(); renderTrade(); fetchDayOpens([S.symbol]);
+    if (isExt(S.symbol)) {
+      const x = EXTM.get(S.symbol), n = bars.length; x.c = bars[n - 1].close; if (n > 1) x.o = bars[n - 2].close;
+      S.tk24 = { o: x.o, h: null, l: null, q: null }; S.prec = 2; applyPrecision();
+      S.extTimer = setInterval(extLive, S.symbol.startsWith('dvol:') ? 5000 : 60000); extLive();
+    }
   } catch (e) {
     if (gen !== S.gen) return;
     if (e.fatal && prevSymbol && prevSymbol !== S.symbol) { toast(`No se encontró ${dispSym(S.symbol)}`, 'err'); S.symbol = prevSymbol; return loadMarket(); }
@@ -1366,7 +1417,7 @@ async function resync() {
     S.bars = keep.concat(fresh); setPx(S.symbol, fresh[fresh.length - 1].close); renderBars(false);
   } catch (e) {} finally { S.syncing = false; }
 }
-function setSymbol(sym) { if (!isHL(sym)) sym = sym.toUpperCase(); if (sym === S.symbol) return; const prev = S.symbol; S.symbol = sym; loadMarket(prev); }
+function setSymbol(sym) { if (!sym.includes(':')) sym = sym.toUpperCase(); if (sym === S.symbol) return; const prev = S.symbol; S.symbol = sym; loadMarket(prev); }
 function setTf(tf) { if (tf === S.tf) return; S.tf = tf; loadMarket(); }
 
 /* ---------- Bucle de pintado (agrupa los ticks por frame) ---------- */
@@ -1411,13 +1462,13 @@ function renderHeader(now) {
  * ===================================================================== */
 const HL_API = 'https://api.hyperliquid.xyz/info', HL_WS = 'wss://api.hyperliquid.xyz/ws';
 const HL_IV = new Set(['1m', '3m', '5m', '15m', '30m', '1h', '2h', '4h', '8h', '12h', '1d', '3d', '1w', '1M']);
-const HL_FX = /^(EUR|GBP|JPY|CHF|AUD|CAD|NZD|MXN|CNH|CNY|KRW|BRL|INR|TRY|ZAR|SGD|HKD|SEK|NOK|DXY|USDX)$|^(EUR|GBP|USD|AUD|NZD|CAD|CHF|JPY)(USD|JPY|EUR|CHF|CAD|GBP|CNH|MXN)$/;
+const HL_FX = /^(EUR|GBP|JPY|CHF|AUD|CAD|NZD|MXN|CNH|CNY|KRW|BRL|INR|TRY|ZAR|SGD|HKD|SEK|NOK)$|^(EUR|GBP|USD|AUD|NZD|CAD|CHF|JPY)(USD|JPY|EUR|CHF|CAD|GBP|CNH|MXN)$/;
 const HL_CMD = /^(GOLD|SILVER|XAU|XAG|CL|WTI|BRENT|OIL|USOIL|UKOIL|NATGAS|NG|GAS|COPPER|HG|PLATINUM|PLAT|XPT|PALLADIUM|XPD|URANIUM|CORN|WHEAT|SOY|SOYBEAN|COFFEE|COCOA|SUGAR|COTTON|LUMBER|ALUMINIUM|ALUMINUM|NICKEL|ZINC|LITHIUM|CATTLE|HOGS|GLD|SLV|USO)$/;
-const HL_IDX = /^(SP500|SPX|US500|XYZ100|NDX|NAS100|US100|NASDAQ|DJI|DOW|US30|RUSSELL|RUT|US2000|VIX|DAX|GER40|NIKKEI|JP225|NI225|FTSE|UK100|HSI|HK50|KOSPI|KR200|CAC|FR40|STOXX|EU50|SX5E|ASX|AU200|NIFTY|SENSEX|CSI300|SPY|QQQ|DIA|IWM|EWY|EWJ|EWZ|EWT|FXI|MCHI|INDA)\d*$/;
+const HL_IDX = /^(DXY|USDX|DX|SP500|SPX|US500|XYZ100|NDX|NAS100|US100|NASDAQ|DJI|DOW|US30|RUSSELL|RUT|US2000|VIX|DAX|GER40|NIKKEI|JP225|NI225|FTSE|UK100|HSI|HK50|KOSPI|KR200|CAC|FR40|STOXX|EU50|SX5E|ASX|AU200|NIFTY|SENSEX|CSI300|SPY|QQQ|DIA|IWM|EWY|EWJ|EWZ|EWT|FXI|MCHI|INDA)\d*$/;
 const hlCat = n => { n = n.toUpperCase(); return HL_FX.test(n) ? 'FX' : HL_CMD.test(n) ? 'CMD' : HL_IDX.test(n) ? 'IDX' : 'STK'; };
 const HL_CATS = { STK: 'Acciones', IDX: 'Índices', CMD: 'Materias primas', FX: 'Divisas' };
 const HL = { markets: new Map(), at: 0, p: null, dexes: [] };
-const tickerOf = sym => isHL(sym) ? HL.markets.get(sym) : S.tickers.get(sym);
+const tickerOf = sym => isExt(sym) ? EXTM.get(sym) : isHL(sym) ? HL.markets.get(sym) : S.tickers.get(sym);
 async function hlInfo(body, timeout = 12000) {
   const ctl = new AbortController(), to = setTimeout(() => ctl.abort(), timeout);
   try {
@@ -1516,6 +1567,80 @@ function onHL(m) {
 }
 
 /* =====================================================================
+ * 6c. ÍNDICES DE VOLATILIDAD: Cboe (VIX y familia, diario) y Deribit (DVOL, tiempo real)
+ * ===================================================================== */
+const EXT = [
+  ['dvol:BTC', 'BTC DVOL', 'Volatilidad implícita de BTC a 30 días · Deribit'],
+  ['dvol:ETH', 'ETH DVOL', 'Volatilidad implícita de ETH a 30 días · Deribit'],
+  ['cboe:VIX', 'VIX', 'Volatilidad del S&P 500 · Cboe (diario)'],
+  ['cboe:VIX9D', 'VIX9D', 'Volatilidad del S&P 500 a 9 días · Cboe'],
+  ['cboe:VIX3M', 'VIX3M', 'Volatilidad del S&P 500 a 3 meses · Cboe'],
+  ['cboe:VIX6M', 'VIX6M', 'Volatilidad del S&P 500 a 6 meses · Cboe'],
+  ['cboe:VVIX', 'VVIX', 'Volatilidad del VIX · Cboe'],
+  ['cboe:SKEW', 'SKEW', 'Riesgo de cola del S&P 500 · Cboe'],
+  ['cboe:OVX', 'OVX', 'Volatilidad del petróleo · Cboe'],
+  ['cboe:GVZ', 'GVZ', 'Volatilidad del oro · Cboe'],
+].map(([s, name, desc]) => ({ s, name, desc, cat: 'IDX', dex: s.startsWith('dvol') ? 'Deribit' : 'Cboe', c: null, o: null, qv: 4e9, at: 0 }));
+const EXTM = new Map(EXT.map(x => [x.s, x]));
+const DVOL_SEC = { '1': 1, '60': 60, '3600': 3600, '43200': 43200, '1D': 86400 };
+function extPlan(sym, d) {
+  if (sym.startsWith('cboe:')) return d.sec < 86400 ? null : { api: '1d', n: d.kind === 'month' ? 31 * d.m : Math.round(d.sec / 86400) };
+  const base = d.sec < 60 ? '1' : d.sec < 3600 ? '60' : d.sec < 43200 ? '3600' : d.sec < 86400 ? '43200' : '1D';
+  return { api: base, n: d.kind === 'month' ? 31 * d.m : Math.max(1, Math.round(d.sec / DVOL_SEC[base])) };
+}
+const CBOE = new Map();
+async function cboeHistory(code) {
+  const c = CBOE.get(code); if (c && Date.now() - c.at < 600000) return c.bars;
+  const r = await fetch(`https://cdn.cboe.com/api/global/us_indices/daily_prices/${code}_History.csv`);
+  if (!r.ok) throw Object.assign(new Error('HTTP ' + r.status), { fatal: r.status === 404 });
+  const lines = (await r.text()).trim().split(/\r?\n/), head = lines.shift().split(',').map(x => x.trim().toUpperCase());
+  const col = k => head.indexOf(k), iD = Math.max(0, col('DATE')), iO = col('OPEN'), iH = col('HIGH'), iL = col('LOW'), iC = col('CLOSE') >= 0 ? col('CLOSE') : head.length - 1;
+  const bars = [];
+  for (const l of lines) {
+    const f = l.split(','), ds = (f[iD] || '').trim(); let t;
+    if (ds.includes('/')) { const [m, d, y] = ds.split('/'); t = Date.UTC(+y, +m - 1, +d) / 1000; } else t = Date.parse(ds + 'T00:00:00Z') / 1000;
+    const cl = +f[iC]; if (!isNum(t) || !(cl > 0)) continue;
+    const o = +f[iO] > 0 ? +f[iO] : cl, hi = +f[iH] > 0 ? +f[iH] : Math.max(o, cl), lo = +f[iL] > 0 ? +f[iL] : Math.min(o, cl);
+    bars.push({ time: t, open: o, high: Math.max(hi, o, cl), low: Math.min(lo, o, cl), close: cl, volume: 0 });
+  }
+  bars.sort((a, b) => a.time - b.time);
+  if (!bars.length) throw new Error('Sin datos');
+  CBOE.set(code, { at: Date.now(), bars }); return bars;
+}
+async function cboeQuote(code) {   // último valor (con retraso), si Cboe lo permite
+  try { const j = await (await fetch(`https://cdn.cboe.com/api/global/delayed_quotes/quotes/_${code}.json`)).json(); const p = +(j && j.data && (j.data.current_price || j.data.close)); return p > 0 ? p : null; } catch (e) { return null; }
+}
+async function extCandles(sym, iv, endMs, count = 1000) {
+  if (sym.startsWith('cboe:')) { const all = await cboeHistory(sym.slice(5)), end = endMs ? endMs / 1000 : Infinity; return all.filter(b => b.time < end).slice(-5000); }
+  const res = DVOL_SEC[iv] || 60, end = Math.floor(endMs || Date.now()), start = Math.max(0, end - count * res * 1000);
+  const j = await (await fetch(`https://www.deribit.com/api/v2/public/get_volatility_index_data?currency=${sym.slice(5)}&start_timestamp=${start}&end_timestamp=${end}&resolution=${iv}`)).json();
+  const data = j && j.result && j.result.data; if (!Array.isArray(data)) throw new Error('Respuesta no válida');
+  return data.map(x => ({ time: Math.floor(x[0] / 1000), open: +x[1], high: +x[2], low: +x[3], close: +x[4], volume: 0 })).sort((a, b) => a.time - b.time);
+}
+// Precio y cambio diario para buscador y watchlist
+async function extRefresh(list) {
+  await Promise.all(list.filter(isExt).map(async s => {
+    const x = EXTM.get(s); if (!x || Date.now() - x.at < 60000) return; x.at = Date.now();
+    try {
+      if (s.startsWith('cboe:')) { const b = await cboeHistory(s.slice(5)), q = await cboeQuote(s.slice(5)); x.o = b[b.length - (q ? 1 : 2)].close; x.c = q || b[b.length - 1].close; }
+      else { const b = await extCandles(s, '1D', null, 3); if (b.length) { x.c = b[b.length - 1].close; x.o = b[b.length - 1].open; } }
+    } catch (e) {}
+  }));
+  S.wlDirty = S.symDirty = true;
+}
+// Tiempo real del gráfico: DVOL cada 5 s, Cboe cada minuto (con retraso)
+async function extLive() {
+  const sym = S.symbol; if (!isExt(sym) || S.loading) return;
+  try {
+    if (sym.startsWith('dvol:')) {
+      const pl = curPlan(), b = await extCandles(sym, pl.api, null, 4);
+      if (sym !== S.symbol) return;
+      for (const x of b) onKline({ s: sym, k: { t: x.time * 1000, i: pl.api, o: x.open, h: x.high, l: x.low, c: x.close, v: 0 } });
+    } else { const p = await cboeQuote(sym.slice(5)); if (p && sym === S.symbol) onTrade(p, Date.now()); }
+  } catch (e) {}
+}
+
+/* =====================================================================
  * 7. PAPER TRADING (simulador)
  * ===================================================================== */
 const pnlOf = (pos, price) => (price - pos.entry) * pos.qty * (pos.side === 'long' ? 1 : -1);
@@ -1535,6 +1660,7 @@ function account() {
 }
 function openPosition(side, o = {}) {
   const symbol = o.symbol || S.symbol, price = S.prices[symbol];
+  if (isExt(symbol)) return toast('Los índices de volatilidad no se pueden operar en el simulador', 'err'), null;
   if (!STABLES.includes(quoteOf(symbol))) return toast('El simulador opera pares cotizados en USD, USDT o USDC', 'err'), null;
   if (!isNum(price) || S.loading) return toast('Aún no hay precio en vivo para ' + symbol, 'err'), null;
   const margin = +o.margin, lev = clamp(Math.round(+o.lev || 1), 1, 125);
@@ -1973,17 +2099,19 @@ async function openSymbols(addMode) {
   $('#symTitle').textContent = S.symAdd ? `Añadir a «${wlCur().name}»` : 'Buscar par';
   const q = $('#symQ'); q.value = ''; renderSymList();
   if (window.innerWidth >= 640) q.focus();
-  const [okB] = await Promise.all([loadTickers(), loadHL()]); updateSubs();
+  const [okB] = await Promise.all([loadTickers(), loadHL(), extRefresh(EXT.map(x => x.s))]); updateSubs();
   if (!okB) toast('No se pudo cargar la lista completa de pares', 'err');
   if (S.symOpen) renderSymList();
 }
 function symMatches() {
   const q = $('#symQ').value.trim().toUpperCase().replace(/[^A-Z0-9]/g, ''), hlc = HL_CATS[S.quote];
-  const key = t => t.name ? t.name.toUpperCase() : t.s;
-  let arr = hlc ? [...HL.markets.values()].filter(t => t.cat === S.quote) : [...S.tickers.values()];
-  if (S.quote === 'ALL') arr = arr.concat([...HL.markets.values()]);
-  else if (!hlc) arr = arr.filter(t => t.s.endsWith(S.quote));
-  if (q) arr = arr.filter(t => key(t).includes(q));
+  const key = t => t.name ? t.name.toUpperCase().replace(/[^A-Z0-9]/g, '') : t.s;
+  const others = [...HL.markets.values(), ...EXT];
+  let arr;
+  if (q) arr = [...S.tickers.values(), ...others].filter(t => key(t).includes(q) || (t.desc && t.desc.toUpperCase().replace(/[^A-Z0-9 ]/g, '').includes(q)));   // al escribir se busca en todas las categorías
+  else if (S.quote === 'ALL') arr = [...S.tickers.values(), ...others];
+  else if (hlc) arr = others.filter(t => t.cat === S.quote);
+  else arr = [...S.tickers.values()].filter(t => t.s.endsWith(S.quote));
   arr.sort((a, b) => (q ? (key(b).startsWith(q) - key(a).startsWith(q)) : 0) || (b.qv - a.qv));
   return { q, arr: arr.slice(0, 80) };
 }
@@ -1994,7 +2122,7 @@ function renderSymList() {
   for (const t of arr) {
     const [px, ch, cls] = symCells(t), qt = quoteOf(t.s);
     h += `<div class="row num" data-sym="${esc(t.s)}"><button class="star${wlHas(t.s) ? ' on' : ''}" data-star title="Watchlist">${ICON.star}</button><div class="flex-1 min-w-0"><b>${esc(baseOf(t.s))}</b>` +
-      (t.name ? `<span class="mute" style="font-size:11px"> ${esc(HL_CATS[t.cat])} · ${esc(t.dex)}</span>` : `<span class="mute">${qt ? '/' + qt : ''}</span>`) + '</div>' +
+      (t.desc ? `<div class="mute" style="font-size:11px">${esc(t.desc)}</div>` : t.name ? `<span class="mute" style="font-size:11px"> ${esc(HL_CATS[t.cat])} · ${esc(t.dex)}</span>` : `<span class="mute">${qt ? '/' + qt : ''}</span>`) + '</div>' +
       `<div data-c="px">${px}</div><div data-c="ch" class="${cls}" style="width:64px;text-align:right">${ch}</div></div>`;
   }
   if (!arr.length) h = q.length >= 5 ? `<div class="row" data-sym="${esc(q)}">Abrir <b>${esc(q)}</b></div>` : '<div class="p-4 text-center mute">Sin resultados</div>';
@@ -2072,11 +2200,11 @@ function renderWl() {
     `<button data-sort="px" class="${arrow('px') ? 'on' : ''}">Último${arrow('px')}</button><span>·</span><button data-sort="pc" class="${arrow('pc') ? 'on' : ''}">Cambio %${arrow('pc')}</button>`;
   let h = '';
   for (const sym of wlSorted()) {
-    const c = wlCells(sym), qt = quoteOf(sym), na = isHL(sym) ? HL.markets.size && !HL.markets.has(sym) : S.known && !S.known.has(sym), base = baseOf(sym), mk = isHL(sym) && HL.markets.get(sym);
+    const c = wlCells(sym), qt = quoteOf(sym), na = isExt(sym) ? !EXTM.has(sym) : isHL(sym) ? HL.markets.size && !HL.markets.has(sym) : S.known && !S.known.has(sym), base = baseOf(sym), mk = isHL(sym) && HL.markets.get(sym);
     h += `<div class="wl-row${sym === S.symbol ? ' cur' : ''}" data-sym="${esc(sym)}">` +
       (S.wlEdit ? '<button class="wl-del" data-act="del" aria-label="Quitar">−</button>' : '') +
       `<span class="wl-ava" style="background:${avaColor(sym)}${base.length > 4 ? ';font-size:9px' : ''}">${esc(base.slice(0, 5))}</span>` +
-      `<div class="flex-1 min-w-0"><div class="wl-sym">${esc(dispSym(sym))}</div><div class="wl-sub">${na ? '<span class="down">No disponible</span>' : mk ? esc(HL_CATS[mk.cat]) + ' · ' + esc(mk.dex) + ' · Hyperliquid' : esc(base) + (qt ? ' / ' + esc(qt) : '') + ' · Binance'}</div></div>` +
+      `<div class="flex-1 min-w-0"><div class="wl-sym">${esc(dispSym(sym))}</div><div class="wl-sub">${na ? '<span class="down">No disponible</span>' : isExt(sym) ? esc((EXTM.get(sym) || {}).desc || '') : mk ? esc(HL_CATS[mk.cat]) + ' · ' + esc(mk.dex) + ' · Hyperliquid' : esc(base) + (qt ? ' / ' + esc(qt) : '') + ' · Binance'}</div></div>` +
       `<div class="text-right num min-w-0"><div class="wl-px" data-c="px">${c.px}</div><div class="wl-ch ${c.cls}" data-c="ch">${c.ch}</div></div>` +
       (S.wlEdit ? '<span class="wl-grip" data-grip aria-label="Reordenar">≡</span>' : '') + '</div>';
   }
@@ -2092,7 +2220,7 @@ function updateWlRows() {
 }
 async function openWatchlist() {
   S.wlOpen = true; S.wlEdit = false; openModal('mWl'); renderWl();
-  await Promise.all([loadTickers(), wlCur().syms.some(isHL) ? loadHL() : null]); if (!S.wlOpen) return;
+  await Promise.all([loadTickers(), wlCur().syms.some(isHL) ? loadHL() : null, extRefresh(wlCur().syms)]); if (!S.wlOpen) return;
   renderWl(); fetchDayOpens(wlCur().syms);
 }
 function bindWatchlist() {
@@ -2236,7 +2364,7 @@ const AG_EX = [
 const AG_EXI = Object.fromEntries(AG_EX.map(x => [x.id, x]));
 const A = Object.assign({ ex: { BINANCE: true, BINANCE_F: true, BYBIT: true, OKX: true, COINBASE: true }, min: {}, sound: false, vol: 0.6, liq: true, group: true }, saved.aggr || {});
 const OKX_CT = { BTC: 0.01, ETH: 0.1, SOL: 1, XRP: 100, DOGE: 1000, BNB: 0.01, ADA: 100, AVAX: 1, LINK: 1, LTC: 1, DOT: 1, TRX: 1000, SUI: 1, PEPE: 10000000 };
-const agBase = () => isHL(S.symbol) ? 'BTC' : baseOf(S.symbol) || S.symbol;
+const agBase = () => isHL(S.symbol) || isExt(S.symbol) ? 'BTC' : baseOf(S.symbol) || S.symbol;
 const agMinDefault = b => ({ BTC: 10000, ETH: 5000, SOL: 2000, BNB: 2000, XRP: 2000, DOGE: 2000 }[b] || 500);
 const agMin = () => +A.min[agBase()] > 0 ? +A.min[agBase()] : agMinDefault(agBase());
 const fmtK = x => { const a = Math.abs(x); return '$' + (a >= 1e6 ? (x / 1e6).toFixed(a >= 1e7 ? 1 : 2) + 'M' : a >= 1e3 ? (x / 1e3).toFixed(a >= 1e5 ? 0 : 1) + 'K' : x.toFixed(0)); };
@@ -2583,7 +2711,7 @@ const LQ_EX = [
   { id: 'OKX', label: 'OKX Perp', color: '#e0e3eb' },
   { id: 'HL', label: 'Hyperliquid', color: '#50e3c2' },
 ];
-const LQS = Object.assign({ ex: { BINANCE: true, BINANCE_F: true, BYBIT: true, OKX: true, HL: true }, R: 1, band: 1 }, saved.lq || {});
+const LQS = Object.assign({ ex: { BINANCE: true, BINANCE_F: true, BYBIT: true, OKX: true, HL: true }, R: 1, band: 1, tab: 'heat', grp: 1 }, saved.lq || {});
 const LQ_RANGES = [0.5, 1, 2, 5], LQ_BANDS = [0.1, 0.25, 0.5, 1, 2, 5];
 const LQ = {
   on: false, gen: 0, sym: '', base: '', hl: false, books: {}, socks: {}, cols: [], cur: null, step: 0, timer: 0, nsig: null,
@@ -2709,7 +2837,7 @@ function lqStart() {
   }
   updateHLSubs();
   $('#lqTk').value = dispSym(tk);
-  renderLqEx(); renderLqRange();
+  renderLqEx(); renderLqRange(); renderLqTab();
   LQ.timer = setInterval(lqSample, 1000);
   lqDraw();
 }
@@ -2759,6 +2887,7 @@ function lqCanvas(c) {
 }
 function lqDraw() {
   if (!LQ.on) return;
+  if (LQS.tab === 'book') { renderLqBook(); renderLqStats(); return; }
   const { g, w, h } = lqCanvas($('#lqHeat')), cur = LQ.cur;
   g.fillStyle = '#0d111c'; g.fillRect(0, 0, w, h);
   const axisW = 58, profW = Math.min(110, Math.max(70, w * 0.2)), heatW = w - axisW - profW;
@@ -2863,6 +2992,64 @@ function renderLqEx() {
     const title = { live: 'Conectado', wait: 'Conectando…', err: 'Reconectando…', na: 'No disponible para este activo', off: 'Desactivado' }[st];
     return `<button class="chip ag-chip${LQS.ex[x.id] ? ' on' : ''}" data-ex="${x.id}" title="${title}"><i class="ag-dot ${st}"></i>${x.label}</button>`; }).join('');
 }
+/* ---------- Orderbook: escalera agregada de todos los exchanges + gráfico de profundidad ---------- */
+const LQ_GRP = [1, 2, 5, 10, 25];
+function renderLqBook() {
+  const cur = LQ.cur, box = $('#lqLadder');
+  $('#lqGrp').innerHTML = LQ_GRP.map(g => `<button class="chip${g === LQS.grp ? ' on' : ''}" data-g="${g}">${LQ.step ? fmtN(g * LQ.step, Math.max(0, -Math.floor(Math.log10(g * LQ.step)))) : g + '×'}</button>`).join('');
+  if (!cur) { box.innerHTML = '<div class="p-6 text-center mute">Cargando libros de órdenes…</div>'; return lqDepth(null); }
+  const g = LQS.grp, step = LQ.step, w = g * step, mid = cur.mid, pd = Math.max(0, guessPrec(mid) - (w >= 1 ? 2 : 0));
+  const group = side => {   // agrupa los tramos de precio en niveles de ancho w
+    const m = new Map(), arr = side === 'b' ? cur.bid : cur.ask;
+    for (let k = 0; k < cur.nb; k++) {
+      const v = arr[k]; if (!v) continue;
+      const gi = Math.floor((k + cur.b0) / g); let o = m.get(gi); if (!o) { o = { gi, usd: 0, ex: {} }; m.set(gi, o); }
+      o.usd += v; for (const id of cur.ids) { const x = cur.per[id][k]; if (x) o.ex[id] = (o.ex[id] || 0) + x; }
+    }
+    return [...m.values()].sort((a, b) => side === 'b' ? b.gi - a.gi : a.gi - b.gi).slice(0, 14);
+  };
+  const bids = group('b'), asks = group('a'); let cb = 0, ca = 0;
+  for (const x of bids) x.cum = (cb += x.usd); for (const x of asks) x.cum = (ca += x.usd);
+  const maxCum = Math.max(cb, ca) || 1, sizes = bids.concat(asks).map(x => x.usd).sort((a, b) => a - b), big = (sizes[Math.floor(sizes.length / 2)] || 0) * 3;
+  const pb = LQ.books[['BINANCE_F', 'BINANCE', 'BYBIT', 'OKX', 'HL'].find(id => cur.ids.includes(id))], bb = bestBid(pb), ba = bestAsk(pb);
+  const exBar = o => '<span class="lq-exbar">' + cur.ids.filter(id => o.ex[id]).map(id => `<i style="width:${(o.ex[id] / o.usd * 100).toFixed(1)}%;background:${LQ_EX.find(e => e.id === id).color}" title="${LQ_EX.find(e => e.id === id).label}"></i>`).join('') + '</span>';
+  const row = (o, side) => {
+    const price = side === 'b' ? (o.gi + 1) * w : o.gi * w, qty = o.usd / Math.max(price, 1e-12), wall = o.usd >= big && big > 0;
+    return `<div class="lq-lv ${side}${wall ? ' wall' : ''}"><i class="lq-depth" style="width:${(o.cum / maxCum * 100).toFixed(1)}%"></i>` +
+      `<span class="${side === 'b' ? 'up' : 'down'}">${fmtN(price, pd)}</span><span>${fmtQty(qty)}</span><span>${fmtK(o.usd)}</span><span class="mute">${fmtK(o.cum)}</span>${exBar(o)}</div>`;
+  };
+  const spread = ba - bb, bps = spread / mid * 1e4;
+  box.innerHTML = '<div class="lq-lv hd"><span>Precio</span><span>Cantidad</span><span>Importe</span><span>Acumulado</span><span>Exchanges</span></div>' +
+    asks.slice().reverse().map(o => row(o, 'a')).join('') +
+    `<div class="lq-spread num"><b>${fmtN(mid, guessPrec(mid))}</b><span class="mute">Spread ${isNum(spread) ? fmtN(spread, guessPrec(mid)) : '—'} (${isNum(bps) ? bps.toFixed(2) : '—'} pb)</span>` +
+    `<span>${cb + ca ? `<b class="${cb >= ca ? 'up' : 'down'}">${cb >= ca ? 'Compras' : 'Ventas'} ${(Math.max(cb, ca) / Math.max(Math.min(cb, ca), 1)).toFixed(2)}×</b>` : ''}</span></div>` +
+    bids.map(o => row(o, 'b')).join('') +
+    `<div class="lq-legend">${cur.ids.map(id => { const x = LQ_EX.find(e => e.id === id); return `<span><i style="background:${x.color}"></i>${x.label}</span>`; }).join('')}<span class="mute">· resaltado = muro (≥3× la mediana)</span></div>`;
+  lqDepth(cur);
+}
+// Gráfico de profundidad: liquidez acumulada a cada lado del precio
+function lqDepth(cur) {
+  const { g, w, h } = lqCanvas($('#lqDepth')); g.fillStyle = '#0d111c'; g.fillRect(0, 0, w, h);
+  if (!cur) return;
+  const R = LQS.R / 100, mid = cur.mid, lo = mid * (1 - R), hi = mid * (1 + R), xOf = p => (p - lo) / (hi - lo) * w;
+  const pts = (side) => { const out = []; let acc = 0;
+    if (side === 'b') { for (let k = Math.floor(mid / LQ.step) - cur.b0; k >= 0; k--) { const p = (k + cur.b0) * LQ.step; if (p < lo) break; acc += cur.bid[k] || 0; out.push([p, acc]); } }
+    else { for (let k = Math.floor(mid / LQ.step) - cur.b0; k < cur.nb; k++) { const p = (k + cur.b0 + 1) * LQ.step; if (p > hi) break; acc += cur.ask[k] || 0; out.push([p, acc]); } }
+    return out; };
+  const B = pts('b'), A = pts('a'), mx = Math.max(B.length ? B[B.length - 1][1] : 0, A.length ? A[A.length - 1][1] : 0) || 1, yOf = v => h - 16 - v / mx * (h - 30);
+  const area = (P, col, fill) => { if (!P.length) return; g.beginPath(); g.moveTo(xOf(mid), h - 16); for (const [p, v] of P) g.lineTo(xOf(p), yOf(v)); g.lineTo(xOf(P[P.length - 1][0]), h - 16); g.closePath(); g.fillStyle = fill; g.fill(); g.beginPath(); P.forEach(([p, v], i) => i ? g.lineTo(xOf(p), yOf(v)) : g.moveTo(xOf(p), yOf(v))); g.strokeStyle = col; g.lineWidth = 1.5; g.stroke(); };
+  area(B, '#089981', 'rgba(8,153,129,.25)'); area(A, '#f23645', 'rgba(242,54,69,.25)');
+  g.fillStyle = 'rgba(255,255,255,.5)'; g.fillRect(xOf(mid), 0, 1, h - 16);
+  g.font = '10px -apple-system,sans-serif'; g.fillStyle = '#b2b5be'; const d = guessPrec(mid);
+  g.textAlign = 'left'; g.fillText(fmtN(lo, d), 4, h - 4); g.textAlign = 'center'; g.fillText(fmtN(mid, d), xOf(mid), h - 4); g.textAlign = 'right'; g.fillText(fmtN(hi, d), w - 4, h - 4);
+  g.textAlign = 'left'; g.fillText(`Profundidad ±${LQS.R}% · máx ${fmtK(mx)}`, 6, 12);
+}
+function renderLqTab() {
+  $$('#lqTabs .tab').forEach(t => t.classList.toggle('on', t.dataset.tab === LQS.tab));
+  $('#lqHeatView').style.display = LQS.tab === 'heat' ? '' : 'none';
+  $('#lqBookView').style.display = LQS.tab === 'book' ? '' : 'none';
+  lqDraw();
+}
 function renderLqRange() { $('#lqRange').innerHTML = LQ_RANGES.map(r => `<button class="chip${r === LQS.R ? ' on' : ''}" data-r="${r}">±${r}%</button>`).join(''); }
 async function lqResolve(txt) {
   const q = txt.trim().toUpperCase().replace(/[^A-Z0-9.]/g, ''); if (!q) return null;
@@ -2875,7 +3062,7 @@ async function lqResolve(txt) {
 }
 function openLiquidity() {
   openModal('mLq'); S.lqOpen = true;
-  LQ.sym = isHL(S.symbol) ? S.symbol : baseOf(S.symbol);
+  LQ.sym = isHL(S.symbol) ? S.symbol : isExt(S.symbol) ? 'BTC' : baseOf(S.symbol);
   lqStart();
 }
 function bindLiquidity() {
@@ -2884,6 +3071,8 @@ function bindLiquidity() {
   $('#lqRange').addEventListener('click', e => { const b = e.target.closest('[data-r]'); if (!b) return; LQS.R = +b.dataset.r; if (LQS.band > LQS.R) LQS.band = LQS.R; save(); lqStart(); });
   $('#lqStats').addEventListener('click', e => { const b = e.target.closest('[data-band]'); if (!b) return; LQS.band = +b.dataset.band; save(); renderLqStats(); toast(`Imbalance del gráfico: ±${LQS.band}% (desde ahora)`, 'info', 1500); });
   $('#lqTk').addEventListener('keydown', async e => { if (e.key !== 'Enter') return; e.preventDefault(); const s = await lqResolve(e.target.value); if (!s) return; LQ.sym = s; lqStart(); e.target.blur(); });
+  $('#lqTabs').addEventListener('click', e => { const t = e.target.closest('[data-tab]'); if (!t) return; LQS.tab = t.dataset.tab; save(); renderLqTab(); });
+  $('#lqGrp').addEventListener('click', e => { const b = e.target.closest('[data-g]'); if (!b) return; LQS.grp = +b.dataset.g; save(); renderLqBook(); });
   $('#lqUse').addEventListener('click', () => { LQ.sym = isHL(S.symbol) ? S.symbol : baseOf(S.symbol); lqStart(); });
   window.addEventListener('resize', () => { if (LQ.on) lqDraw(); });
 }
