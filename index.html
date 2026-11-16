@@ -101,6 +101,15 @@
   .tf-chip{position:relative;height:44px;border-radius:10px;background:#2a2e39;font-size:15px;font-weight:500;color:var(--txt)}
   .tf-chip:hover{background:#363a45}.tf-chip.on{background:#fff;color:#131722;font-weight:700}
   .tf-star{position:absolute;top:2px;right:5px;font-size:11px;color:#4a4e59}.tf-star.on{color:#f7a600}
+  /* Liquidez */
+  .lq-sec{padding:12px 12px 4px;font-size:12px;font-weight:600;color:var(--txt)}
+  .lq-tbl{display:flex;flex-direction:column;max-width:760px}
+  .lq-sec,.lq-wall{max-width:760px}
+  .lq-row{display:grid;grid-template-columns:92px 62px 1fr 62px 58px;align-items:center;gap:8px;padding:6px 12px;font-size:12px;text-align:right;border-bottom:1px solid rgba(42,46,57,.5);width:100%}
+  .lq-row>span:first-child{text-align:left}
+  button.lq-row:hover{background:var(--hover)}.lq-row.on{background:rgba(41,98,255,.12);box-shadow:inset 3px 0 0 var(--accent)}
+  .lq-bar{display:flex;height:6px;border-radius:3px;overflow:hidden}
+  .lq-wall{padding:6px 12px;font-size:13px;line-height:1.45}
   /* Trades en vivo */
   #agChartWrap{height:46dvh;min-height:240px}
   @media (min-width:1024px){#agChartWrap{height:44%}}
@@ -228,6 +237,9 @@
       <button id="btnAg" class="tb" title="Trades en vivo" aria-label="Trades en vivo">
         <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><path d="M9 1.5L3 9h4.5L7 14.5 13 7H8.5z"/></svg><span class="hidden sm:inline">Trades</span>
       </button>
+      <button id="btnLq" class="tb" title="Liquidez: heatmap y orderbook" aria-label="Liquidez">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1.5" y="2" width="13" height="12" rx="1.5"/><path d="M4 5h3M4 8h6M4 11h4"/></svg><span class="hidden sm:inline">Liquidez</span>
+      </button>
       <button id="btnInd" class="tb" title="Indicadores" aria-label="Indicadores">
         <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M1.5 11.5l3.5-5 3 3 3.5-6 3 4"/></svg><span class="hidden sm:inline">Indicadores</span>
       </button>
@@ -317,6 +329,22 @@
   <div class="px-3 py-2 text-mute border-t border-line" style="font-size:11px">Cambio desde la apertura diaria (00:00 UTC), igual que TradingView. Toca un símbolo para abrir su gráfico.</div>
 </div></div>
 
+<!-- ===== Liquidez ===== -->
+<div id="mLq" class="modal"><div class="sheet lg" style="max-width:1200px">
+  <div class="sh-head">
+    <span>Liquidez</span>
+    <input id="lqTk" class="inp" style="width:104px;height:30px;font-size:13px;font-weight:600" placeholder="BTC, NVDA…" autocapitalize="characters" spellcheck="false" enterkeyhint="go" aria-label="Activo">
+    <button id="lqUse" class="btn sm" title="Usar el activo del gráfico">Gráfico</button>
+    <button class="sh-x" data-close>✕</button>
+  </div>
+  <div class="flex gap-1.5 px-2 py-2 overflow-x-auto no-sb border-b border-line shrink-0"><div id="lqRange" class="flex gap-1.5"></div><span class="sep" style="align-self:center"></span><div id="lqEx" class="flex gap-1.5"></div></div>
+  <div class="flex-1 overflow-y-auto min-h-0">
+    <canvas id="lqHeat" style="display:block;width:100%;height:46dvh;min-height:260px"></canvas>
+    <canvas id="lqImb" style="display:block;width:100%;height:58px;border-top:1px solid var(--line)"></canvas>
+    <div id="lqStats" class="pb-4"></div>
+  </div>
+</div></div>
+
 <!-- ===== Trades en vivo ===== -->
 <div id="mAg" class="modal"><div class="sheet lg" style="max-width:1200px">
   <div class="sh-head">
@@ -354,7 +382,7 @@
 <div id="mSym" class="modal"><div class="sheet" style="height:80dvh">
   <div class="sh-head"><span id="symTitle">Buscar par</span><button class="sh-x" data-close>✕</button></div>
   <div class="p-2 flex flex-col gap-2 border-b border-line">
-    <input id="symQ" class="inp" type="search" placeholder="BTC, ETH, SOL…" autocomplete="off" autocapitalize="characters" spellcheck="false">
+    <input id="symQ" class="inp" type="search" placeholder="BTC, ETH, NVDA, GOLD, EUR…" autocomplete="off" autocapitalize="characters" spellcheck="false">
     <div id="symQuotes" class="flex gap-1.5 overflow-x-auto no-sb"></div>
   </div>
   <div id="symList" class="flex-1 overflow-y-auto"></div>
@@ -449,13 +477,17 @@ function nextBucket(d, t, k = 1) {
 const REST = ['https://data-api.binance.vision', 'https://api.binance.com', 'https://api1.binance.com'];
 const WSS  = ['wss://data-stream.binance.vision/ws', 'wss://stream.binance.com:9443/ws', 'wss://stream.binance.com:443/ws'];
 const QUOTES = ['USDT', 'USDC', 'FDUSD', 'TUSD', 'BUSD', 'DAI', 'BTC', 'ETH', 'BNB', 'EUR', 'TRY', 'BRL', 'JPY'];
-const STABLES = ['USDT', 'USDC', 'FDUSD', 'TUSD', 'BUSD', 'DAI'];
+const STABLES = ['USDT', 'USDC', 'FDUSD', 'TUSD', 'BUSD', 'DAI', 'USD'];
 const POPULAR = ['BTCUSDT', 'ETHUSDT', 'SOLUSDT', 'BNBUSDT', 'XRPUSDT', 'DOGEUSDT', 'ADAUSDT', 'AVAXUSDT', 'LINKUSDT', 'TRXUSDT', 'DOTUSDT', 'LTCUSDT', 'SUIUSDT', 'NEARUSDT', 'PEPEUSDT'];
 const MAX_BARS = 6000;
 const LS_KEY = 'vela.v1';
 
-const quoteOf = sym => QUOTES.find(q => sym.endsWith(q) && sym.length > q.length) || '';
-const baseOf  = sym => { const q = quoteOf(sym); return q ? sym.slice(0, -q.length) : sym; };
+const isHL = s => typeof s === 'string' && s.includes(':');   // mercado de Hyperliquid (p. ej. "xyz:NVDA")
+const hlName = s => s.slice(s.indexOf(':') + 1);
+const dispSym = s => isHL(s) ? hlName(s) : s;
+const quoteOf = sym => isHL(sym) ? 'USD' : QUOTES.find(q => sym.endsWith(q) && sym.length > q.length) || '';
+const baseOf  = sym => { if (isHL(sym)) return hlName(sym); const q = quoteOf(sym); return q ? sym.slice(0, -q.length) : sym; };
+const SYM_RE = /^([a-z0-9]{1,12}:[A-Za-z0-9._-]{1,24}|[A-Z0-9]{3,20})$/;
 const guessPrec = p => { p = Math.abs(p); if (!p || !isFinite(p)) return 2; if (p >= 10) return 2; if (p >= 1) return 3; if (p >= 0.1) return 4; if (p >= 0.01) return 5; if (p >= 0.0001) return 6; return 8; };
 const fmtN = (x, d = 2) => isNum(x) ? x.toLocaleString('en-US', { minimumFractionDigits: d, maximumFractionDigits: d }) : '—';
 const fmtUsd = x => isNum(x) ? (x < 0 ? '-$' : '$') + fmtN(Math.abs(x), 2) : '—';
@@ -482,7 +514,7 @@ let saved = {};
 try { saved = JSON.parse(localStorage.getItem(LS_KEY)) || {}; } catch (e) { saved = {}; }
 
 const S = {
-  symbol: /^[A-Z0-9]{5,20}$/.test(saved.symbol || '') ? saved.symbol : 'BTCUSDT',
+  symbol: SYM_RE.test(saved.symbol || '') ? saved.symbol : 'BTCUSDT',
   tf: TFS.some(t => t.id === saved.tf) ? saved.tf : '15m', tail: new Map(),
   tfFav: Array.isArray(saved.tfFav) ? saved.tfFav.filter(x => TFS.some(t => t.id === x)) : ['1m', '15m', '1h', '4h', '1d'],
   bars: [], prices: {}, prec: 2, tz: 0, gen: 0, loading: true, noMore: false, loadingMore: false,
@@ -501,7 +533,7 @@ const WL_DEFAULT = ['BTCUSDT', 'ETHUSDT', 'SOLUSDT', 'AVAXUSDT', 'ROSEUSDT', 'ET
 const W = (() => {
   const w = saved.wl;
   if (w && Array.isArray(w.lists)) {
-    const lists = w.lists.filter(l => l && Array.isArray(l.syms)).map(l => ({ id: String(l.id), name: String(l.name || 'Lista').slice(0, 40), syms: [...new Set(l.syms.filter(x => /^[A-Z0-9]{3,20}$/.test(x)))] }));
+    const lists = w.lists.filter(l => l && Array.isArray(l.syms)).map(l => ({ id: String(l.id), name: String(l.name || 'Lista').slice(0, 40), syms: [...new Set(l.syms.filter(x => SYM_RE.test(x)))] }));
     if (lists.length) return { lists, active: lists.some(l => l.id === w.active) ? w.active : lists[0].id };
   }
   return { lists: [{ id: 'w1', name: 'Watchlist', syms: WL_DEFAULT.slice() }], active: 'w1' };
@@ -517,7 +549,7 @@ function saveNow() {
       symbol: S.symbol, tf: S.tf, tfFav: S.tfFav, panelOpen: S.panelOpen, lgOpen: S.lgOpen || !!S.lgAuto, quote: S.quote,
       inds: S.inds.map(i => ({ type: i.type, params: i.params, colors: i.colors, hidden: i.hidden })),
       scripts: S.scripts.map(s => ({ id: s.id, name: s.name, code: s.code, enabled: s.enabled })),
-      wl: W, aggr: typeof A === 'undefined' ? saved.aggr : A, trade: T, form: { margin: $('#oMargin').value, lev: $('#oLev').value },
+      wl: W, aggr: typeof A === 'undefined' ? saved.aggr : A, lq: typeof LQS === 'undefined' ? saved.lq : LQS, trade: T, form: { margin: $('#oMargin').value, lev: $('#oLev').value },
     }));
   } catch (e) { /* almacenamiento lleno o bloqueado */ }
 }
@@ -1076,7 +1108,7 @@ function updateLegend() {
   if (!o) { o = S.bars[n - 1]; prev = S.bars[n - 2]; }
   const base = prev ? prev.close : o.open, ch = base ? (o.close - base) / base * 100 : 0, cls = o.close >= o.open ? 'up' : 'down';
   const cell = (k, v) => `<span><span class="mute">${k}</span><span class="${cls}">${fmtP(v)}</span></span>`;
-  el.lgMain.innerHTML = `<span class="mute hidden sm:inline">${esc(S.symbol)} · ${curTf().label}</span>` +
+  el.lgMain.innerHTML = `<span class="mute hidden sm:inline">${esc(dispSym(S.symbol))} · ${curTf().label}</span>` +
     cell('O', o.open) + cell('H', o.high) + cell('L', o.low) + cell('C', o.close) + `<span class="${ch >= 0 ? 'up' : 'down'}">${fmtPct(ch)}</span>`;
   if (!S.lgOpen) return;
   for (const row of el.lgInds.children) {
@@ -1117,13 +1149,18 @@ async function api(path, timeout = 12000) {
 }
 const parseK = k => ({ time: Math.floor(k[0] / 1000), open: +k[1], high: +k[2], low: +k[3], close: +k[4], volume: +k[5] });
 async function fetchKlines(sym, tf, endMs) {
+  if (isHL(sym)) return hlCandles(sym, tf, endMs);
   const j = await api(`/api/v3/klines?symbol=${sym}&interval=${tf}&limit=1000${endMs ? '&endTime=' + endMs : ''}`);
   if (!Array.isArray(j)) throw new Error('Respuesta no válida');
   return j.map(parseK);
 }
 // Velas del timeframe: nativas de Binance o construidas agrupando velas base (varias páginas si hace falta)
+const planOf = (sym, d) => isHL(sym) ? hlPlan(d) : { api: d.api, n: d.n };
+const curPlan = () => planOf(S.symbol, curTf()) || { api: curTf().api, n: curTf().n };
 async function fetchBars(sym, d, endMs) {
-  if (isNative(d)) { const k = await fetchKlines(sym, d.api, endMs); k.tail = new Map(); return k; }
+  const pl = planOf(sym, d); if (!pl) throw Object.assign(new Error('Intervalo no disponible'), { fatal: true });
+  if (pl.n === 1) { const k = await fetchKlines(sym, pl.api, endMs); k.tail = new Map(); return k; }
+  d = Object.assign({}, d, { api: pl.api, n: pl.n });
   const pages = d.kind === 'month' ? 1 : clamp(Math.ceil(600 * d.n / 1000), 1, 10);
   let base = [], end = endMs, atStart = false;
   for (let i = 0; i < pages; i++) {
@@ -1144,6 +1181,7 @@ async function fetchBars(sym, d, endMs) {
   return out;
 }
 async function fetchPrecision(sym) {
+  if (isHL(sym)) return null;
   try {
     const j = await api('/api/v3/exchangeInfo?symbol=' + sym, 8000);
     const f = j.symbols[0].filters.find(x => x.filterType === 'PRICE_FILTER'), ts = parseFloat(f.tickSize);
@@ -1194,11 +1232,11 @@ const Feed = {
   },
 };
 function updateSubs() {
-  const s = S.symbol.toLowerCase(), w = [`${s}@kline_${curTf().api}`, `${s}@aggTrade`, `${s}@miniTicker`, 'btcusdt@miniTicker'];
-  for (const p of T.positions) if (p.symbol !== S.symbol) w.push(p.symbol.toLowerCase() + '@miniTicker');
-  for (const x of wlCur().syms.slice(0, 100)) if (!S.known || S.known.has(x)) w.push(x.toLowerCase() + '@miniTicker');   // watchlist siempre en vivo
+  const s = S.symbol.toLowerCase(), w = isHL(S.symbol) ? ['btcusdt@miniTicker'] : [`${s}@kline_${curTf().api}`, `${s}@aggTrade`, `${s}@miniTicker`, 'btcusdt@miniTicker'];
+  for (const p of T.positions) if (p.symbol !== S.symbol && !isHL(p.symbol)) w.push(p.symbol.toLowerCase() + '@miniTicker');
+  for (const x of wlCur().syms.slice(0, 100)) if (!isHL(x) && (!S.known || S.known.has(x))) w.push(x.toLowerCase() + '@miniTicker');   // watchlist siempre en vivo
   if (S.symOpen) w.push('!miniTicker@arr');
-  Feed.set(w);
+  Feed.set(w); updateHLSubs();
 }
 function onFeed(m) {
   if (Array.isArray(m)) { for (const t of m) if (t && t.e === '24hrMiniTicker') onMini(t); S.symDirty = true; return; }
@@ -1221,18 +1259,18 @@ function tailBar(tail, time) {   // vela agregada a partir de sus velas base
   return o;
 }
 function onKline(m) {
-  const k = m.k, d = curTf(); if (S.loading || m.s !== S.symbol || k.i !== d.api) return;
+  const k = m.k, d = curTf(), pl = curPlan(); if (S.loading || m.s !== S.symbol || k.i !== pl.api) return;
   const bars = S.bars, n = bars.length; if (!n) return;
   const kb = { time: Math.floor(k.t / 1000), open: +k.o, high: +k.h, low: +k.l, close: +k.c, volume: +k.v }, last = bars[n - 1];
   const t = bucketOf(d, kb.time);
   let b = kb;
-  if (!isNative(d)) {   // timeframe construido: se acumulan las velas base de la vela actual
+  if (pl.n !== 1) {   // timeframe construido: se acumulan las velas base de la vela actual
     if (t === last.time) { S.tail.set(kb.time, kb); b = tailBar(S.tail, t); }
     else if (t > last.time) { S.tail = new Map([[kb.time, kb]]); b = Object.assign({}, kb, { time: t }); }
     else if (n > 1 && t === bars[n - 2].time) { const pb = bars[n - 2]; pb.close = kb.close; pb.high = Math.max(pb.high, kb.high); pb.low = Math.min(pb.low, kb.low); try { candle.update(chartBar(pb), true); } catch (e) {} S.calcDirty = true; touch(); return; }
     else return;
   }
-  if (t === last.time) { if (isNative(d)) bars[n - 1] = b; else { last.open = b.open; last.high = Math.max(b.high, last.high); last.low = Math.min(b.low, last.low); last.close = b.close; last.volume = b.volume; } }
+  if (t === last.time) { if (pl.n === 1) bars[n - 1] = b; else { last.open = b.open; last.high = Math.max(b.high, last.high); last.low = Math.min(b.low, last.low); last.close = b.close; last.volume = b.volume; } }
   else if (t > last.time) {
     if (t > nextBucket(d, last.time)) { resync(); return; }   // hueco: se recarga el tramo reciente
     candle.update(chartBar(last)); bars.push(b); S.newBar = true;
@@ -1251,7 +1289,7 @@ function onTrade(p, ms) {
   else if (bt > last.time) {
     if (bt !== nextBucket(d, last.time)) return;
     candle.update(chartBar(last)); bars.push({ time: bt, open: p, high: p, low: p, close: p, volume: 0 }); S.newBar = true;
-    if (!isNative(d)) S.tail = new Map();
+    if (curPlan().n !== 1) S.tail = new Map();
   } else return;
   S.barDirty = S.calcDirty = true; setPx(S.symbol, p); touch();
 }
@@ -1262,15 +1300,26 @@ async function loadMarket(prevSymbol) {
   const gen = ++S.gen;
   S.loading = true; S.noMore = false; S.bars = []; S.tk24 = null; S.prevPx = null; S.hover = null;
   el.loader.classList.add('on');
-  el.symLabel.textContent = S.symbol; renderStar();
+  el.symLabel.textContent = dispSym(S.symbol); renderStar();
+  if (isHL(S.symbol) && !hlPlan(curTf())) { toast('Este mercado no tiene velas de segundos: se usa 1m', 'info'); S.tf = '1m'; }
   if (S.agOpen && AG.base !== agBase()) { $('#agPair').textContent = `${agBase()} · importes en USD`; $('#agMin').value = agMin(); AG.start(); }
   renderTfBar();
   updateSubs(); save();
   try {
-    const d = curTf(), [bars, prec] = await Promise.all([fetchBars(S.symbol, d), fetchPrecision(S.symbol)]);
+    const d = curTf(), hl = isHL(S.symbol);
+    if (hl && !(await loadHL()) && !HL.markets.size) throw new Error('Sin conexión con Hyperliquid');
+    if (hl && !HL.markets.has(S.symbol)) throw Object.assign(new Error('Mercado no encontrado'), { fatal: true });
+    const [bars, prec] = await Promise.all([fetchBars(S.symbol, d), fetchPrecision(S.symbol)]);
     if (gen !== S.gen) return;
     if (!bars.length) throw Object.assign(new Error('Sin datos'), { fatal: true });
-    S.bars = bars; S.tail = bars.tail; S.prec = prec != null ? prec : guessPrec(bars[bars.length - 1].close);
+    const lp = bars[bars.length - 1].close;
+    S.bars = bars; S.tail = bars.tail; S.prec = prec != null ? prec : guessPrec(lp);
+    if (hl) {   // 5 cifras significativas y máximo 6 - szDecimals decimales, como Hyperliquid
+      const mk = HL.markets.get(S.symbol);
+      const ref = isNum(mk.c) ? mk.c : lp;
+      S.prec = clamp(Math.min(6 - mk.szDec, Math.max(0, 4 - Math.floor(Math.log10(Math.abs(ref) || 1)))), 0, 8);
+      S.tk24 = { o: mk.o, h: null, l: null, q: mk.qv };
+    }
     S.tz = d.sec >= 86400 ? 0 : -new Date().getTimezoneOffset() * 60;
     chart.applyOptions({ timeScale: { secondsVisible: d.sec < 60 } });
     S.loading = false;
@@ -1281,7 +1330,7 @@ async function loadMarket(prevSymbol) {
     renderOrderInfo(); renderTrade(); fetchDayOpens([S.symbol]);
   } catch (e) {
     if (gen !== S.gen) return;
-    if (e.fatal && prevSymbol && prevSymbol !== S.symbol) { toast(`No se encontró el par ${S.symbol} en Binance`, 'err'); S.symbol = prevSymbol; return loadMarket(); }
+    if (e.fatal && prevSymbol && prevSymbol !== S.symbol) { toast(`No se encontró ${dispSym(S.symbol)}`, 'err'); S.symbol = prevSymbol; return loadMarket(); }
     toast('No se pudieron cargar los datos. Reintentando…', 'err');
     setTimeout(() => { if (gen === S.gen) loadMarket(); }, 4000);
   }
@@ -1317,7 +1366,7 @@ async function resync() {
     S.bars = keep.concat(fresh); setPx(S.symbol, fresh[fresh.length - 1].close); renderBars(false);
   } catch (e) {} finally { S.syncing = false; }
 }
-function setSymbol(sym) { sym = sym.toUpperCase(); if (sym === S.symbol) return; const prev = S.symbol; S.symbol = sym; loadMarket(prev); }
+function setSymbol(sym) { if (!isHL(sym)) sym = sym.toUpperCase(); if (sym === S.symbol) return; const prev = S.symbol; S.symbol = sym; loadMarket(prev); }
 function setTf(tf) { if (tf === S.tf) return; S.tf = tf; loadMarket(); }
 
 /* ---------- Bucle de pintado (agrupa los ticks por frame) ---------- */
@@ -1351,9 +1400,119 @@ function renderHeader(now) {
     el.chg.innerHTML = `<span class="hidden sm:inline">${d >= 0 ? '+' : ''}${fmtP(d)} </span>${fmtPct(pc)}`; el.chg.className = 'text-xs whitespace-nowrap ' + (d >= 0 ? 'up' : 'down');
   }
   if (tk) {
-    el.h24.textContent = fmtP(tk.h); el.l24.textContent = fmtP(tk.l); el.v24.textContent = fmtVol(tk.q) + ' ' + quoteOf(S.symbol);
+    el.h24.textContent = fmtP(tk.h); el.l24.textContent = fmtP(tk.l); el.v24.textContent = isNum(tk.q) ? fmtVol(tk.q) + ' ' + quoteOf(S.symbol) : '—';
   }
-  if (now - tTitle > 1000) { tTitle = now; document.title = `${fmtP(p)} ${S.symbol} · Vela`; }
+  if (now - tTitle > 1000) { tTitle = now; document.title = `${fmtP(p)} ${dispSym(S.symbol)} · Vela`; }
+}
+
+/* =====================================================================
+ * 6b. HYPERLIQUID: acciones, índices, materias primas y divisas (mercados HIP-3)
+ *     API pública sin clave. Símbolos con prefijo de mercado, p. ej. "xyz:NVDA".
+ * ===================================================================== */
+const HL_API = 'https://api.hyperliquid.xyz/info', HL_WS = 'wss://api.hyperliquid.xyz/ws';
+const HL_IV = new Set(['1m', '3m', '5m', '15m', '30m', '1h', '2h', '4h', '8h', '12h', '1d', '3d', '1w', '1M']);
+const HL_FX = /^(EUR|GBP|JPY|CHF|AUD|CAD|NZD|MXN|CNH|CNY|KRW|BRL|INR|TRY|ZAR|SGD|HKD|SEK|NOK|DXY|USDX)$|^(EUR|GBP|USD|AUD|NZD|CAD|CHF|JPY)(USD|JPY|EUR|CHF|CAD|GBP|CNH|MXN)$/;
+const HL_CMD = /^(GOLD|SILVER|XAU|XAG|CL|WTI|BRENT|OIL|USOIL|UKOIL|NATGAS|NG|GAS|COPPER|HG|PLATINUM|PLAT|XPT|PALLADIUM|XPD|URANIUM|CORN|WHEAT|SOY|SOYBEAN|COFFEE|COCOA|SUGAR|COTTON|LUMBER|ALUMINIUM|ALUMINUM|NICKEL|ZINC|LITHIUM|CATTLE|HOGS|GLD|SLV|USO)$/;
+const HL_IDX = /^(SP500|SPX|US500|XYZ100|NDX|NAS100|US100|NASDAQ|DJI|DOW|US30|RUSSELL|RUT|US2000|VIX|DAX|GER40|NIKKEI|JP225|NI225|FTSE|UK100|HSI|HK50|KOSPI|KR200|CAC|FR40|STOXX|EU50|SX5E|ASX|AU200|NIFTY|SENSEX|CSI300|SPY|QQQ|DIA|IWM|EWY|EWJ|EWZ|EWT|FXI|MCHI|INDA)\d*$/;
+const hlCat = n => { n = n.toUpperCase(); return HL_FX.test(n) ? 'FX' : HL_CMD.test(n) ? 'CMD' : HL_IDX.test(n) ? 'IDX' : 'STK'; };
+const HL_CATS = { STK: 'Acciones', IDX: 'Índices', CMD: 'Materias primas', FX: 'Divisas' };
+const HL = { markets: new Map(), at: 0, p: null, dexes: [] };
+const tickerOf = sym => isHL(sym) ? HL.markets.get(sym) : S.tickers.get(sym);
+async function hlInfo(body, timeout = 12000) {
+  const ctl = new AbortController(), to = setTimeout(() => ctl.abort(), timeout);
+  try {
+    const r = await fetch(HL_API, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), signal: ctl.signal });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    return await r.json();
+  } finally { clearTimeout(to); }
+}
+// Catálogo de mercados HIP-3 (todos los "dex" desplegados), con precio, cierre de hace 24 h y volumen
+function loadHL(force) {
+  if (!force && HL.markets.size && Date.now() - HL.at < 120000) return Promise.resolve(true);
+  if (HL.p) return HL.p;
+  return (HL.p = (async () => {
+    try {
+      const dx = await hlInfo({ type: 'perpDexs' });
+      const names = (Array.isArray(dx) ? dx : []).filter(d => d && d.name).map(d => String(d.name));
+      const res = await Promise.all(names.map(n => hlInfo({ type: 'metaAndAssetCtxs', dex: n }).catch(() => null)));
+      const m = new Map();
+      res.forEach((r, k) => {
+        if (!Array.isArray(r) || !r[0]) return; const uni = r[0].universe || [], ctx = r[1] || [];
+        uni.forEach((u, i) => {
+          if (!u || !u.name || u.isDelisted) return;
+          const s = u.name.includes(':') ? u.name : names[k] + ':' + u.name, c = ctx[i] || {}, nm = hlName(s), old = HL.markets.get(s);
+          m.set(s, { s, dex: names[k], name: nm, szDec: +u.szDecimals || 0, c: old && isNum(old.c) ? old.c : (+c.midPx || +c.markPx || null), o: +c.prevDayPx || null, qv: +c.dayNtlVlm || 0, cat: hlCat(nm) });
+        });
+      });
+      if (!m.size) return false;
+      HL.dexes = names; HL.markets = m; HL.at = Date.now(); return true;
+    } catch (e) { return false; } finally { HL.p = null; }
+  })());
+}
+// Plan de descarga para un timeframe en Hyperliquid (no hay velas de segundos ni de 6 h nativas)
+function hlPlan(d) {
+  if (d.sec < 60) return null;
+  if (HL_IV.has(d.api)) return { api: d.api, n: d.n };
+  if (d.api === '6h') return { api: '2h', n: 3 };
+  return null;
+}
+const IV_SEC = { '1m': 60, '3m': 180, '5m': 300, '15m': 900, '30m': 1800, '1h': 3600, '2h': 7200, '4h': 14400, '8h': 28800, '12h': 43200, '1d': 86400, '3d': 259200, '1w': 604800, '1M': 2678400 };
+async function hlCandles(sym, iv, endMs) {
+  const end = endMs || Date.now(), start = end - 1000 * (IV_SEC[iv] || 60) * 1000;
+  const j = await hlInfo({ type: 'candleSnapshot', req: { coin: sym, interval: iv, startTime: Math.max(0, start), endTime: end } });
+  if (!Array.isArray(j)) throw new Error('Respuesta no válida');
+  return j.map(c => ({ time: Math.floor(c.t / 1000), open: +c.o, high: +c.h, low: +c.l, close: +c.c, volume: +c.v })).sort((a, b) => a.time - b.time);
+}
+// Un único WebSocket con suscripciones dinámicas
+const HLF = {
+  ws: null, want: new Map(), live: new Set(), tries: 0, timer: 0, ping: 0, last: 0,
+  key: s => JSON.stringify(s),
+  set(list) {
+    this.want = new Map(list.map(s => [this.key(s), s]));
+    if (!this.want.size) return;
+    if (!this.ws || this.ws.readyState > 1) { if (!this.timer) this.connect(); return; }
+    if (this.ws.readyState === 1) this.sync();
+  },
+  connect() {
+    clearTimeout(this.timer); this.timer = 0; clearInterval(this.ping);
+    if (this.ws) { const o = this.ws; o.onclose = o.onmessage = o.onopen = o.onerror = null; try { o.close(); } catch (e) {} }
+    let ws; try { ws = new WebSocket(HL_WS); } catch (e) { return this.retry(); }
+    this.ws = ws; this.live = new Set();
+    ws.onopen = () => { this.tries = 0; this.last = Date.now(); this.sync(); this.ping = setInterval(() => this.send({ method: 'ping' }), 30000); };
+    ws.onmessage = ev => { this.last = Date.now(); let m; try { m = JSON.parse(ev.data); } catch (e) { return; } onHL(m); };
+    ws.onclose = () => { clearInterval(this.ping); if (this.ws === ws) { this.ws = null; if (this.want.size) this.retry(); } };
+    ws.onerror = () => {};
+  },
+  retry() { clearTimeout(this.timer); this.timer = setTimeout(() => { this.timer = 0; this.connect(); }, Math.min(15000, 800 * Math.pow(2, this.tries++))); },
+  send(o) { try { this.ws.send(JSON.stringify(o)); } catch (e) {} },
+  sync() {
+    for (const k of this.live) if (!this.want.has(k)) this.send({ method: 'unsubscribe', subscription: JSON.parse(k) });
+    for (const [k, s] of this.want) if (!this.live.has(k)) this.send({ method: 'subscribe', subscription: s });
+    this.live = new Set(this.want.keys());
+  },
+};
+function updateHLSubs() {
+  const subs = [];
+  if (isHL(S.symbol)) { subs.push({ type: 'trades', coin: S.symbol }); const pl = hlPlan(curTf()); if (pl) subs.push({ type: 'candle', coin: S.symbol, interval: pl.api }); }
+  const dexes = new Set([S.symbol, ...wlCur().syms, ...T.positions.map(p => p.symbol)].filter(isHL).map(s => s.split(':')[0]));
+  if (S.symOpen && Object.prototype.hasOwnProperty.call(HL_CATS, S.quote)) for (const d of HL.dexes) dexes.add(d);
+  for (const d of dexes) subs.push({ type: 'allMids', dex: d });
+  if (typeof LQ !== 'undefined') for (const s of LQ.hlSubs()) subs.push(s);
+  HLF.set(subs);
+}
+function onHL(m) {
+  const ch = m.channel, d = m.data; if (!ch || ch === 'pong' || ch === 'subscriptionResponse') return;
+  if (ch === 'trades' && Array.isArray(d)) { for (const t of d) if (t.coin === S.symbol) onTrade(+t.px, +t.time); if (typeof LQ !== 'undefined') LQ.onHLTrades(d); }
+  else if (ch === 'candle' && d && d.s === S.symbol) onKline({ s: S.symbol, k: { t: d.t, i: d.i, o: d.o, h: d.h, l: d.l, c: d.c, v: d.v } });
+  else if (ch === 'allMids' && d && d.mids) {
+    for (const coin in d.mids) {
+      const px = +d.mids[coin], mk = HL.markets.get(coin); if (!isNum(px)) continue;
+      if (mk) mk.c = px;
+      if (wlHas(coin)) S.wlDirty = true;
+      if (coin !== S.symbol && T.positions.some(p => p.symbol === coin)) setPx(coin, px);
+    }
+    S.symDirty = true;
+  } else if (ch === 'l2Book' && d && typeof LQ !== 'undefined') LQ.onHLBook(d);
 }
 
 /* =====================================================================
@@ -1376,7 +1535,7 @@ function account() {
 }
 function openPosition(side, o = {}) {
   const symbol = o.symbol || S.symbol, price = S.prices[symbol];
-  if (!STABLES.includes(quoteOf(symbol))) return toast('El simulador opera pares cotizados en USDT/USDC', 'err'), null;
+  if (!STABLES.includes(quoteOf(symbol))) return toast('El simulador opera pares cotizados en USD, USDT o USDC', 'err'), null;
   if (!isNum(price) || S.loading) return toast('Aún no hay precio en vivo para ' + symbol, 'err'), null;
   const margin = +o.margin, lev = clamp(Math.round(+o.lev || 1), 1, 125);
   if (!(margin > 0)) return toast('Indica un margen mayor que 0', 'err'), null;
@@ -1786,6 +1945,7 @@ function closeModal(m) {
   if (m.id === 'mSym') { S.symOpen = false; S.symAdd = false; updateSubs(); if (S.wlOpen) renderWl(); }
   if (m.id === 'mWl') { S.wlOpen = false; S.wlEdit = false; }
   if (m.id === 'mAg') { S.agOpen = false; AG.stop(); }
+  if (m.id === 'mLq') { S.lqOpen = false; lqStop(); }
   if (m.id === 'mCfg') S.cfgUid = null;
 }
 
@@ -1813,24 +1973,28 @@ async function openSymbols(addMode) {
   $('#symTitle').textContent = S.symAdd ? `Añadir a «${wlCur().name}»` : 'Buscar par';
   const q = $('#symQ'); q.value = ''; renderSymList();
   if (window.innerWidth >= 640) q.focus();
-  if (!(await loadTickers())) toast('No se pudo cargar la lista completa de pares', 'err');
+  const [okB] = await Promise.all([loadTickers(), loadHL()]); updateSubs();
+  if (!okB) toast('No se pudo cargar la lista completa de pares', 'err');
   if (S.symOpen) renderSymList();
 }
 function symMatches() {
-  const q = $('#symQ').value.trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
-  let arr = [...S.tickers.values()];
-  if (S.quote !== 'ALL') arr = arr.filter(t => t.s.endsWith(S.quote));
-  if (q) arr = arr.filter(t => t.s.includes(q));
-  arr.sort((a, b) => (q ? (b.s.startsWith(q) - a.s.startsWith(q)) : 0) || (b.qv - a.qv));
+  const q = $('#symQ').value.trim().toUpperCase().replace(/[^A-Z0-9]/g, ''), hlc = HL_CATS[S.quote];
+  const key = t => t.name ? t.name.toUpperCase() : t.s;
+  let arr = hlc ? [...HL.markets.values()].filter(t => t.cat === S.quote) : [...S.tickers.values()];
+  if (S.quote === 'ALL') arr = arr.concat([...HL.markets.values()]);
+  else if (!hlc) arr = arr.filter(t => t.s.endsWith(S.quote));
+  if (q) arr = arr.filter(t => key(t).includes(q));
+  arr.sort((a, b) => (q ? (key(b).startsWith(q) - key(a).startsWith(q)) : 0) || (b.qv - a.qv));
   return { q, arr: arr.slice(0, 80) };
 }
 const symCells = t => { const ch = t.o ? (t.c - t.o) / t.o * 100 : null; return [isNum(t.c) ? fmtN(t.c, guessPrec(t.c)) : '—', ch == null ? '' : fmtPct(ch), ch == null ? '' : ch >= 0 ? 'up' : 'down']; };
 function renderSymList() {
-  $('#symQuotes').innerHTML = ['USDT', 'USDC', 'BTC', 'ETH', 'EUR', 'ALL'].map(q => `<button class="chip${S.quote === q ? ' on' : ''}" data-q="${q}">${q === 'ALL' ? 'Todos' : q}</button>`).join('');
+  $('#symQuotes').innerHTML = ['USDT', 'USDC', 'BTC', 'STK', 'IDX', 'CMD', 'FX', 'ALL'].map(q => `<button class="chip${S.quote === q ? ' on' : ''}" data-q="${q}">${q === 'ALL' ? 'Todos' : HL_CATS[q] || 'Cripto ' + q}</button>`).join('');
   const { q, arr } = symMatches(); let h = '';
   for (const t of arr) {
     const [px, ch, cls] = symCells(t), qt = quoteOf(t.s);
-    h += `<div class="row num" data-sym="${t.s}"><button class="star${wlHas(t.s) ? ' on' : ''}" data-star title="Watchlist">${ICON.star}</button><div class="flex-1 min-w-0"><b>${esc(baseOf(t.s))}</b><span class="mute">${qt ? '/' + qt : ''}</span></div>` +
+    h += `<div class="row num" data-sym="${esc(t.s)}"><button class="star${wlHas(t.s) ? ' on' : ''}" data-star title="Watchlist">${ICON.star}</button><div class="flex-1 min-w-0"><b>${esc(baseOf(t.s))}</b>` +
+      (t.name ? `<span class="mute" style="font-size:11px"> ${esc(HL_CATS[t.cat])} · ${esc(t.dex)}</span>` : `<span class="mute">${qt ? '/' + qt : ''}</span>`) + '</div>' +
       `<div data-c="px">${px}</div><div data-c="ch" class="${cls}" style="width:64px;text-align:right">${ch}</div></div>`;
   }
   if (!arr.length) h = q.length >= 5 ? `<div class="row" data-sym="${esc(q)}">Abrir <b>${esc(q)}</b></div>` : '<div class="p-4 text-center mute">Sin resultados</div>';
@@ -1838,7 +2002,7 @@ function renderSymList() {
 }
 function updateSymRows() {   // refresco en vivo sin reconstruir la lista
   for (const row of $('#symList').children) {
-    const t = S.tickers.get(row.dataset.sym); if (!t) continue; const [px, ch, cls] = symCells(t);
+    const t = tickerOf(row.dataset.sym); if (!t) continue; const [px, ch, cls] = symCells(t);
     const a = row.querySelector('[data-c=px]'), b = row.querySelector('[data-c=ch]');
     if (a) a.textContent = px; if (b) { b.textContent = ch; b.className = cls; }
   }
@@ -1866,7 +2030,7 @@ function chgOf(sym, price, o24) { const o = S.dayOpen[sym] || o24; return isNum(
 async function fetchDayOpens(list) {
   const day = Math.floor(Date.now() / 864e5);
   if (day !== S.doDay) { S.dayOpen = {}; S.doDay = day; }
-  const miss = [...new Set(list)].filter(x => S.dayOpen[x] == null && (!S.known || S.known.has(x)));
+  const miss = [...new Set(list)].filter(x => !isHL(x) && S.dayOpen[x] == null && (!S.known || S.known.has(x)));
   for (let i = 0; i < miss.length; i += 100) {
     const chunk = miss.slice(i, i + 100);
     try {
@@ -1880,16 +2044,16 @@ function renderStar() { const b = $('#btnStar'); if (b) b.classList.toggle('on',
 function afterWl() { updateSubs(); renderStar(); if (S.wlOpen) renderWl(); save(); }
 function wlToggle(sym) {
   const L = wlCur(), i = L.syms.indexOf(sym);
-  if (i >= 0) { L.syms.splice(i, 1); toast(`${sym} quitado de «${L.name}»`, 'info', 1400); }
+  if (i >= 0) { L.syms.splice(i, 1); toast(`${dispSym(sym)} quitado de «${L.name}»`, 'info', 1400); }
   else {
     if (L.syms.length >= 100) return toast('Máximo 100 símbolos por lista', 'err');
-    L.syms.push(sym); toast(`${sym} añadido a «${L.name}»`, 'ok', 1400); fetchDayOpens([sym]);
+    L.syms.push(sym); toast(`${dispSym(sym)} añadido a «${L.name}»`, 'ok', 1400); fetchDayOpens([sym]);
   }
   afterWl();
 }
 const avaColor = sym => { let h = 0; for (const c of baseOf(sym)) h = (h * 31 + c.charCodeAt(0)) % 360; return `hsl(${h},50%,38%)`; };
 function wlCells(sym) {
-  const t = S.tickers.get(sym), px = t && isNum(t.c) ? t.c : (S.symbol === sym ? S.prices[sym] : null), ch = chgOf(sym, px, t && t.o), d = guessPrec(px || 1);
+  const t = tickerOf(sym), px = t && isNum(t.c) ? t.c : (S.symbol === sym ? S.prices[sym] : null), ch = chgOf(sym, px, t && t.o), d = guessPrec(px || 1);
   return { px: isNum(px) ? fmtN(px, d) : '—', ch: ch ? `${ch.d >= 0 ? '+' : '−'}${fmtN(Math.abs(ch.d), d)} ${fmtPct(ch.pc)}` : '', cls: ch ? (ch.d >= 0 ? 'up' : 'down') : 'mute', pc: ch ? ch.pc : null, raw: px };
 }
 function wlSorted() {
@@ -1908,11 +2072,11 @@ function renderWl() {
     `<button data-sort="px" class="${arrow('px') ? 'on' : ''}">Último${arrow('px')}</button><span>·</span><button data-sort="pc" class="${arrow('pc') ? 'on' : ''}">Cambio %${arrow('pc')}</button>`;
   let h = '';
   for (const sym of wlSorted()) {
-    const c = wlCells(sym), qt = quoteOf(sym), na = S.known && !S.known.has(sym), base = baseOf(sym);
+    const c = wlCells(sym), qt = quoteOf(sym), na = isHL(sym) ? HL.markets.size && !HL.markets.has(sym) : S.known && !S.known.has(sym), base = baseOf(sym), mk = isHL(sym) && HL.markets.get(sym);
     h += `<div class="wl-row${sym === S.symbol ? ' cur' : ''}" data-sym="${esc(sym)}">` +
       (S.wlEdit ? '<button class="wl-del" data-act="del" aria-label="Quitar">−</button>' : '') +
       `<span class="wl-ava" style="background:${avaColor(sym)}${base.length > 4 ? ';font-size:9px' : ''}">${esc(base.slice(0, 5))}</span>` +
-      `<div class="flex-1 min-w-0"><div class="wl-sym">${esc(sym)}</div><div class="wl-sub">${na ? '<span class="down">No disponible en Binance</span>' : esc(base) + (qt ? ' / ' + esc(qt) : '') + ' · Binance'}</div></div>` +
+      `<div class="flex-1 min-w-0"><div class="wl-sym">${esc(dispSym(sym))}</div><div class="wl-sub">${na ? '<span class="down">No disponible</span>' : mk ? esc(HL_CATS[mk.cat]) + ' · ' + esc(mk.dex) + ' · Hyperliquid' : esc(base) + (qt ? ' / ' + esc(qt) : '') + ' · Binance'}</div></div>` +
       `<div class="text-right num min-w-0"><div class="wl-px" data-c="px">${c.px}</div><div class="wl-ch ${c.cls}" data-c="ch">${c.ch}</div></div>` +
       (S.wlEdit ? '<span class="wl-grip" data-grip aria-label="Reordenar">≡</span>' : '') + '</div>';
   }
@@ -1928,7 +2092,7 @@ function updateWlRows() {
 }
 async function openWatchlist() {
   S.wlOpen = true; S.wlEdit = false; openModal('mWl'); renderWl();
-  await loadTickers(); if (!S.wlOpen) return;
+  await Promise.all([loadTickers(), wlCur().syms.some(isHL) ? loadHL() : null]); if (!S.wlOpen) return;
   renderWl(); fetchDayOpens(wlCur().syms);
 }
 function bindWatchlist() {
@@ -2072,7 +2236,7 @@ const AG_EX = [
 const AG_EXI = Object.fromEntries(AG_EX.map(x => [x.id, x]));
 const A = Object.assign({ ex: { BINANCE: true, BINANCE_F: true, BYBIT: true, OKX: true, COINBASE: true }, min: {}, sound: false, vol: 0.6, liq: true, group: true }, saved.aggr || {});
 const OKX_CT = { BTC: 0.01, ETH: 0.1, SOL: 1, XRP: 100, DOGE: 1000, BNB: 0.01, ADA: 100, AVAX: 1, LINK: 1, LTC: 1, DOT: 1, TRX: 1000, SUI: 1, PEPE: 10000000 };
-const agBase = () => baseOf(S.symbol) || S.symbol;
+const agBase = () => isHL(S.symbol) ? 'BTC' : baseOf(S.symbol) || S.symbol;
 const agMinDefault = b => ({ BTC: 10000, ETH: 5000, SOL: 2000, BNB: 2000, XRP: 2000, DOGE: 2000 }[b] || 500);
 const agMin = () => +A.min[agBase()] > 0 ? +A.min[agBase()] : agMinDefault(agBase());
 const fmtK = x => { const a = Math.abs(x); return '$' + (a >= 1e6 ? (x / 1e6).toFixed(a >= 1e7 ? 1 : 2) + 'M' : a >= 1e3 ? (x / 1e3).toFixed(a >= 1e5 ? 0 : 1) + 'K' : x.toFixed(0)); };
@@ -2409,6 +2573,322 @@ function bindAggr() {
 }
 
 /* =====================================================================
+ * 9c. LIQUIDEZ: heatmap del libro de órdenes, perfil de profundidad e imbalance
+ *     Libros completos de Binance (spot y perp), Bybit Perp, OKX Perp y Hyperliquid.
+ * ===================================================================== */
+const LQ_EX = [
+  { id: 'BINANCE', label: 'Binance', color: '#f0b90b' },
+  { id: 'BINANCE_F', label: 'Binance Perp', color: '#fcd535' },
+  { id: 'BYBIT', label: 'Bybit Perp', color: '#ff9e2c' },
+  { id: 'OKX', label: 'OKX Perp', color: '#e0e3eb' },
+  { id: 'HL', label: 'Hyperliquid', color: '#50e3c2' },
+];
+const LQS = Object.assign({ ex: { BINANCE: true, BINANCE_F: true, BYBIT: true, OKX: true, HL: true }, R: 1, band: 1 }, saved.lq || {});
+const LQ_RANGES = [0.5, 1, 2, 5], LQ_BANDS = [0.1, 0.25, 0.5, 1, 2, 5];
+const LQ = {
+  on: false, gen: 0, sym: '', base: '', hl: false, books: {}, socks: {}, cols: [], cur: null, step: 0, timer: 0, nsig: null,
+  hlSubs() { return this.on && LQS.ex.HL && this.hlCoin ? [{ type: 'l2Book', coin: this.hlCoin, nSigFigs: this.nsig }] : []; },
+  onHLBook(d) {
+    if (!this.on || d.coin !== this.hlCoin || !Array.isArray(d.levels)) return;
+    const bk = this.books.HL; if (!bk) return;
+    bk.bids = new Map(d.levels[0].map(l => [+l.px, +l.sz])); bk.asks = new Map(d.levels[1].map(l => [+l.px, +l.sz]));
+    bk.ready = true; if (bk.st !== 'live') { bk.st = 'live'; renderLqEx(); }
+  },
+  onHLTrades() {},
+};
+const mkBook = () => ({ bids: new Map(), asks: new Map(), ready: false, st: 'wait', ct: 1 });
+function applyLv(side, lv, mult = 1) { for (const x of lv) { const p = +x[0], q = +x[1] * mult; if (q > 0) side.set(p, q); else side.delete(p); } }
+function niceStep(x) { const e = Math.pow(10, Math.floor(Math.log10(x))), f = x / e; return (f < 1.5 ? 1 : f < 2.25 ? 2 : f < 3.5 ? 2.5 : f < 7.5 ? 5 : 10) * e; }
+const bestBid = bk => { let m = -Infinity; for (const p of bk.bids.keys()) if (p > m) m = p; return m; };
+const bestAsk = bk => { let m = Infinity; for (const p of bk.asks.keys()) if (p < m) m = p; return m; };
+
+// Conexión genérica con reconexión
+function lqSock(id, url, h) {
+  const gen = LQ.gen, s = LQ.socks[id] = { tries: (LQ.socks[id] && LQ.socks[id].tries) || 0 };
+  let ws; try { ws = new WebSocket(url); } catch (e) { return lqRetry(id, gen, h.restart); }
+  s.ws = ws;
+  ws.onopen = () => { s.tries = 0; if (h.open) h.open(ws); if (h.ping) s.ping = setInterval(() => { try { h.ping(ws); } catch (e) {} }, 20000); };
+  ws.onmessage = ev => { if (gen !== LQ.gen || ev.data === 'pong') return; let m; try { m = JSON.parse(ev.data); } catch (e) { return; } h.msg(m, ws); };
+  ws.onclose = () => { clearInterval(s.ping); if (gen !== LQ.gen) return; const bk = LQ.books[id]; if (bk && bk.st !== 'na') { bk.st = 'err'; bk.ready = false; renderLqEx(); lqRetry(id, gen, h.restart); } };
+  ws.onerror = () => {};
+  return ws;
+}
+function lqRetry(id, gen, restart) {
+  const s = LQ.socks[id] || (LQ.socks[id] = { tries: 0 });
+  s.retry = setTimeout(() => { if (gen === LQ.gen) restart(); }, Math.min(20000, 1000 * Math.pow(2, s.tries++)));
+}
+// Binance: stream de diferencias + snapshot REST, sincronizados según el procedimiento oficial
+function lqBinance(id, fut) {
+  const bk = LQ.books[id], sym = LQ.base + 'USDT', gen = LQ.gen; let buf = [], last = 0, synced = false, partial = false, first = true;
+  const url = fut ? `wss://fstream.binance.com/ws/${sym.toLowerCase()}@depth@500ms` : `wss://data-stream.binance.vision/ws/${sym.toLowerCase()}@depth@100ms`;
+  const restart = () => lqBinance(id, fut);
+  const apply = m => {
+    if (m.u < last + (fut ? 0 : 1)) return;   // evento anterior al snapshot
+    // primer evento: debe contener el lastUpdateId del snapshot; los siguientes, ser continuos
+    const ok = first ? m.U <= last + 1 : fut ? m.pu === last : m.U === last + 1;
+    if (!ok) { synced = false; bk.ready = false; first = true; buf = []; setTimeout(snap, 800); return; }   // hueco: se vuelve a sincronizar
+    applyLv(bk.bids, m.b); applyLv(bk.asks, m.a); last = m.u; first = false;
+    if (!bk.ready) { bk.ready = true; bk.st = 'live'; renderLqEx(); }
+  };
+  async function snap() {
+    if (gen !== LQ.gen) return;
+    try {
+      const j = fut ? await (await fetch(`https://fapi.binance.com/fapi/v1/depth?symbol=${sym}&limit=1000`)).json() : await api(`/api/v3/depth?symbol=${sym}&limit=5000`, 15000);
+      if (gen !== LQ.gen) return;
+      if (!j || !Array.isArray(j.bids)) { if (j && j.code) { bk.st = 'na'; renderLqEx(); try { s.close(); } catch (e) {} return; } throw new Error('sin datos'); }
+      bk.bids.clear(); bk.asks.clear(); applyLv(bk.bids, j.bids); applyLv(bk.asks, j.asks); last = j.lastUpdateId; synced = true; first = true;
+      const pend = buf.splice(0); for (const m of pend) if (synced) apply(m);
+      if (!bk.ready) { bk.ready = true; bk.st = 'live'; renderLqEx(); }
+    } catch (e) {
+      if (e && e.fatal) { bk.st = 'na'; renderLqEx(); return; }
+      if (fut) { partial = true; try { s.close(); } catch (er) {} lqSock(id, `wss://fstream.binance.com/ws/${sym.toLowerCase()}@depth20@500ms`, { restart, msg: m => { if (!m.b) return; bk.bids = new Map(m.b.map(x => [+x[0], +x[1]])); bk.asks = new Map(m.a.map(x => [+x[0], +x[1]])); if (!bk.ready) { bk.ready = true; bk.st = 'live'; renderLqEx(); } } }); }
+      else setTimeout(snap, 4000);
+    }
+  }
+  const s = lqSock(id, url, { restart, open: () => setTimeout(snap, 400), msg: m => { if (partial || m.e !== 'depthUpdate') return; if (!synced) { buf.push(m); if (buf.length > 2000) buf.shift(); return; } apply(m); } });
+}
+function lqBybit() {
+  const bk = LQ.books.BYBIT, restart = lqBybit;
+  lqSock('BYBIT', 'wss://stream.bybit.com/v5/public/linear', {
+    restart, ping: ws => ws.send('{"op":"ping"}'),
+    open: ws => ws.send(JSON.stringify({ op: 'subscribe', args: [`orderbook.1000.${LQ.base}USDT`] })),
+    msg: m => {
+      if (m.op === 'subscribe' && m.success === false) { bk.st = 'na'; renderLqEx(); return; }
+      if (!m.topic || !m.topic.startsWith('orderbook') || !m.data) return;
+      const d = m.data; if (m.type === 'snapshot' || d.u === 1) { bk.bids.clear(); bk.asks.clear(); }
+      applyLv(bk.bids, d.b || []); applyLv(bk.asks, d.a || []);
+      if (!bk.ready) { bk.ready = true; bk.st = 'live'; renderLqEx(); }
+    },
+  });
+}
+async function lqOkx() {
+  const bk = LQ.books.OKX, gen = LQ.gen, inst = `${LQ.base}-USDT-SWAP`;
+  try {
+    const j = await (await fetch(`https://www.okx.com/api/v5/public/instruments?instType=SWAP&instId=${inst}`)).json();
+    const ct = +(j.data && j.data[0] && j.data[0].ctVal);
+    if (ct > 0) bk.ct = ct; else if (j.data && !j.data.length) { bk.st = 'na'; renderLqEx(); return; } else bk.ct = OKX_CT[LQ.base] || 0;
+  } catch (e) { bk.ct = OKX_CT[LQ.base] || 0; }
+  if (gen !== LQ.gen) return;
+  if (!bk.ct) { bk.st = 'na'; renderLqEx(); return; }
+  lqSock('OKX', 'wss://ws.okx.com:8443/ws/v5/public', {
+    restart: lqOkx, ping: ws => ws.send('ping'),
+    open: ws => ws.send(JSON.stringify({ op: 'subscribe', args: [{ channel: 'books', instId: inst }] })),
+    msg: m => {
+      if (m.event === 'error') { bk.st = 'na'; renderLqEx(); return; }
+      if (!m.arg || m.arg.channel !== 'books' || !m.data || !m.data[0]) return;
+      const d = m.data[0]; if (m.action === 'snapshot') { bk.bids.clear(); bk.asks.clear(); }
+      applyLv(bk.bids, d.bids || [], bk.ct); applyLv(bk.asks, d.asks || [], bk.ct);
+      if (!bk.ready) { bk.ready = true; bk.st = 'live'; renderLqEx(); }
+    },
+  });
+}
+// Hyperliquid da 20 niveles por lado: se agrupan precios (nSigFigs) para cubrir el rango elegido
+function lqPickNsig(px) {
+  if (!(px > 0)) return 3;
+  for (const n of [5, 4, 3, 2]) { const bucket = Math.pow(10, Math.floor(Math.log10(px)) - n + 1); if (20 * bucket >= px * LQS.R / 100) return n; }
+  return 2;
+}
+
+function lqStart() {
+  lqStop(); LQ.on = true; LQ.gen++;
+  const tk = LQ.sym; LQ.hl = isHL(tk); LQ.base = LQ.hl ? hlName(tk) : tk;
+  LQ.hlCoin = LQ.hl ? tk : LQ.base;
+  LQ.cols = []; LQ.cur = null; LQ.step = 0; LQ.books = {};
+  for (const x of LQ_EX) {
+    const bk = LQ.books[x.id] = mkBook();
+    if (!LQS.ex[x.id]) { bk.st = 'off'; continue; }
+    if (LQ.hl && x.id !== 'HL') { bk.st = 'na'; continue; }
+  }
+  const ref = S.prices[LQ.hl ? tk : tk + 'USDT'] || (tickerOf(LQ.hl ? tk : tk + 'USDT') || {}).c;
+  LQ.nsig = lqPickNsig(ref);
+  if (!LQ.hl) {
+    if (LQS.ex.BINANCE) lqBinance('BINANCE', false);
+    if (LQS.ex.BINANCE_F) lqBinance('BINANCE_F', true);
+    if (LQS.ex.BYBIT) lqBybit();
+    if (LQS.ex.OKX) lqOkx();
+  }
+  updateHLSubs();
+  $('#lqTk').value = dispSym(tk);
+  renderLqEx(); renderLqRange();
+  LQ.timer = setInterval(lqSample, 1000);
+  lqDraw();
+}
+function lqStop() {
+  LQ.on = false; LQ.gen++; clearInterval(LQ.timer);
+  for (const k in LQ.socks) { const s = LQ.socks[k]; clearInterval(s.ping); clearTimeout(s.retry); if (s.ws) { s.ws.onclose = s.ws.onmessage = s.ws.onerror = null; try { s.ws.close(); } catch (e) {} } }
+  LQ.socks = {}; updateHLSubs();
+}
+// Cada segundo: agrega todos los libros en tramos de precio y guarda una columna del heatmap
+function lqSample() {
+  const ids = LQ_EX.map(x => x.id).filter(id => LQ.books[id] && LQ.books[id].ready && LQ.books[id].bids.size && LQ.books[id].asks.size);
+  if (!ids.length) return lqDraw();
+  const pref = ['BINANCE_F', 'BINANCE', 'BYBIT', 'OKX', 'HL'].find(id => ids.includes(id)), pb = LQ.books[pref];
+  const mid = (bestBid(pb) + bestAsk(pb)) / 2; if (!isNum(mid) || mid <= 0) return;
+  const R = LQS.R / 100, span = R * 1.6, lo = mid * (1 - span), hi = mid * (1 + span);
+  if (!LQ.step) LQ.step = niceStep(mid * 2 * R / 120);
+  const step = LQ.step, b0 = Math.floor(lo / step), nb = Math.floor(hi / step) - b0 + 1;
+  const tot = new Float32Array(nb), bid = new Float32Array(nb), ask = new Float32Array(nb), per = {};
+  const bands = LQ_BANDS.filter(b => b / 100 <= span).map(b => ({ b, B: 0, A: 0, ex: {} }));
+  for (const id of ids) {
+    const bk = LQ.books[id], arr = per[id] = new Float32Array(nb), lv = bands.map(() => [0, 0]);
+    for (const [p, q] of bk.bids) { if (p < lo || p > mid) continue; const u = p * q, k = Math.floor(p / step) - b0; tot[k] += u; bid[k] += u; arr[k] += u; const d = (mid - p) / mid; bands.forEach((x, j) => { if (d <= x.b / 100) lv[j][0] += u; }); }
+    for (const [p, q] of bk.asks) { if (p > hi || p < mid) continue; const u = p * q, k = Math.floor(p / step) - b0; tot[k] += u; ask[k] += u; arr[k] += u; const d = (p - mid) / mid; bands.forEach((x, j) => { if (d <= x.b / 100) lv[j][1] += u; }); }
+    bands.forEach((x, j) => { x.B += lv[j][0]; x.A += lv[j][1]; x.ex[id] = lv[j]; });
+  }
+  const tb = bands.find(x => x.b === LQS.band) || bands[bands.length - 1];
+  const imb = tb && tb.B + tb.A > 0 ? (tb.B - tb.A) / (tb.B + tb.A) : 0;
+  LQ.cols.push({ t: Date.now(), b0, v: tot, mid, imb });
+  if (LQ.cols.length > 1800) LQ.cols.shift();
+  LQ.cur = { b0, nb, bid, ask, per, mid, bands, ids };
+  lqDraw();
+}
+// Paleta del heatmap: azul oscuro → azul → cian → amarillo → blanco
+const LQ_LUT = (() => {
+  const stops = [[0, [13, 17, 28]], [0.12, [23, 37, 84]], [0.35, [30, 90, 200]], [0.6, [20, 190, 220]], [0.82, [250, 204, 21]], [1, [255, 250, 235]]], lut = new Uint8ClampedArray(256 * 3);
+  for (let i = 0; i < 256; i++) {
+    const t = i / 255; let k = 0; while (k < stops.length - 2 && t > stops[k + 1][0]) k++;
+    const [t0, c0] = stops[k], [t1, c1] = stops[k + 1], f = (t - t0) / (t1 - t0);
+    for (let c = 0; c < 3; c++) lut[i * 3 + c] = c0[c] + (c1[c] - c0[c]) * f;
+  }
+  return lut;
+})();
+function lqCanvas(c) {
+  const dpr = Math.min(window.devicePixelRatio || 1, 2), w = c.clientWidth, h = c.clientHeight;
+  if (c.width !== Math.round(w * dpr) || c.height !== Math.round(h * dpr)) { c.width = Math.round(w * dpr); c.height = Math.round(h * dpr); }
+  const g = c.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, 0, 0); return { g, w, h };
+}
+function lqDraw() {
+  if (!LQ.on) return;
+  const { g, w, h } = lqCanvas($('#lqHeat')), cur = LQ.cur;
+  g.fillStyle = '#0d111c'; g.fillRect(0, 0, w, h);
+  const axisW = 58, profW = Math.min(110, Math.max(70, w * 0.2)), heatW = w - axisW - profW;
+  if (!cur || !LQ.cols.length) {
+    g.fillStyle = '#787b86'; g.font = '13px -apple-system,sans-serif'; g.textAlign = 'center';
+    g.fillText('Recopilando el libro de órdenes…', w / 2, h / 2); renderLqStats(); return;
+  }
+  const R = LQS.R / 100, step = LQ.step, mid = cur.mid, binLo = Math.floor(mid * (1 - R) / step), binHi = Math.ceil(mid * (1 + R) / step), rows = binHi - binLo + 1;
+  const top = (binHi + 1) * step, bot = binLo * step, yOf = p => (top - p) / (top - bot) * h;
+  // Heatmap (columnas = segundos, filas = tramos de precio)
+  // columnas más anchas mientras hay poco historial; se estrechan a medida que se acumula
+  const colPx = clamp(heatW / Math.max(LQ.cols.length, 90), 2, 6), n = Math.min(LQ.cols.length, Math.max(1, Math.floor(heatW / colPx))), cols = LQ.cols.slice(-n);
+  const vals = []; for (const c of cols) for (let r = 0; r < rows; r += 2) { const k = binLo + r - c.b0; const v = k >= 0 && k < c.v.length ? c.v[k] : 0; if (v > 0) vals.push(v); }
+  vals.sort((a, b) => a - b); const scale = vals.length ? vals[Math.floor(vals.length * 0.985)] || vals[vals.length - 1] : 1;
+  const off = LQ.off || (LQ.off = document.createElement('canvas')); off.width = n; off.height = rows;
+  const og = off.getContext('2d'), img = og.createImageData(n, rows), px = img.data;
+  for (let i = 0; i < n; i++) {
+    const c = cols[i];
+    for (let r = 0; r < rows; r++) {
+      const k = binHi - r - c.b0, v = k >= 0 && k < c.v.length ? c.v[k] : 0, li = Math.round(clamp(Math.sqrt(v / scale), 0, 1) * 255) * 3, o = (r * n + i) * 4;
+      px[o] = LQ_LUT[li]; px[o + 1] = LQ_LUT[li + 1]; px[o + 2] = LQ_LUT[li + 2]; px[o + 3] = 255;
+    }
+  }
+  og.putImageData(img, 0, 0);
+  const x0 = heatW - n * colPx;
+  g.imageSmoothingEnabled = false; g.drawImage(off, 0, 0, n, rows, x0, yOf(top), n * colPx, h);
+  // línea del precio
+  g.strokeStyle = 'rgba(255,255,255,.92)'; g.lineWidth = 1.5; g.beginPath();
+  cols.forEach((c, i) => { const x = x0 + i * colPx + colPx / 2, y = yOf(c.mid); i ? g.lineTo(x, y) : g.moveTo(x, y); }); g.stroke();
+  // Perfil actual del libro (compras en verde, ventas en rojo) y muros principales
+  const px0 = heatW, rowH = h / rows; let mx = 0;
+  for (let r = 0; r < rows; r++) { const k = binHi - r - cur.b0; if (k >= 0 && k < cur.nb) mx = Math.max(mx, cur.bid[k], cur.ask[k]); }
+  g.fillStyle = '#131722'; g.fillRect(px0, 0, profW, h);
+  const walls = [];
+  for (let r = 0; r < rows; r++) {
+    const k = binHi - r - cur.b0; if (k < 0 || k >= cur.nb) continue;
+    const b = cur.bid[k], a = cur.ask[k], v = b || a; if (!v) continue;
+    const len = (profW - 4) * Math.sqrt(v / mx); g.fillStyle = b ? 'rgba(8,153,129,.85)' : 'rgba(242,54,69,.85)';
+    g.fillRect(px0 + 2, r * rowH, len, Math.max(1, rowH - 0.5));
+    walls.push({ k, v, side: b ? 'b' : 'a', y: r * rowH + rowH / 2 });
+  }
+  walls.sort((a, b) => b.v - a.v);
+  g.font = 'bold 10px -apple-system,sans-serif'; g.textAlign = 'right';
+  for (const wl of walls.slice(0, 4)) { g.fillStyle = '#fff'; g.fillText(fmtK(wl.v), px0 + profW - 3, wl.y + 3.5); g.fillStyle = wl.side === 'b' ? '#26a69a' : '#ff5252'; g.fillRect(x0 > 0 ? x0 : 0, wl.y, heatW - (x0 > 0 ? x0 : 0), 0.6); }
+  // Eje de precios
+  g.fillStyle = '#131722'; g.fillRect(w - axisW, 0, axisW, h);
+  g.fillStyle = '#b2b5be'; g.font = '10px -apple-system,sans-serif'; g.textAlign = 'left';
+  const tickStep = niceStep((top - bot) / 8), d = guessPrec(mid);
+  for (let p = Math.ceil(bot / tickStep) * tickStep; p < top; p += tickStep) { const y = yOf(p); g.fillText(fmtN(p, Math.max(0, d - 1)), w - axisW + 4, y + 3); g.fillStyle = 'rgba(42,46,57,.6)'; g.fillRect(0, y, heatW, 0.5); g.fillStyle = '#b2b5be'; }
+  const ym = yOf(mid); g.fillStyle = '#2962ff'; g.fillRect(w - axisW, ym - 8, axisW, 16); g.fillStyle = '#fff'; g.fillText(fmtN(mid, d), w - axisW + 3, ym + 3.5);
+  // Tiempo
+  g.fillStyle = 'rgba(178,181,190,.8)'; g.textAlign = 'center';
+  for (let i = cols.length - 1; i >= 0; i -= 60) { const dt = new Date(cols[i].t); g.fillText(`${String(dt.getHours()).padStart(2, '0')}:${String(dt.getMinutes()).padStart(2, '0')}:${String(dt.getSeconds()).padStart(2, '0')}`, x0 + i * colPx, h - 4); }
+  lqDrawImb(cols, x0, colPx, heatW); renderLqStats();
+}
+// Imbalance a lo largo del tiempo (banda elegida): >0 dominan las compras, <0 las ventas
+function lqDrawImb(cols, x0, colPx, heatW) {
+  const { g, w, h } = lqCanvas($('#lqImb')); g.fillStyle = '#0d111c'; g.fillRect(0, 0, w, h);
+  const y0 = h / 2, sc = (h / 2 - 4);
+  g.fillStyle = 'rgba(120,123,134,.5)'; g.fillRect(0, y0, heatW, 0.6);
+  cols.forEach((c, i) => { const v = clamp(c.imb, -1, 1); g.fillStyle = v >= 0 ? 'rgba(8,153,129,.9)' : 'rgba(242,54,69,.9)'; const y = y0 - v * sc; g.fillRect(x0 + i * colPx, Math.min(y, y0), colPx, Math.abs(y - y0) || 0.5); });
+  const lastI = cols.length ? cols[cols.length - 1].imb : 0;
+  g.fillStyle = '#b2b5be'; g.font = '10px -apple-system,sans-serif'; g.textAlign = 'left';
+  g.fillText(`Imbalance ±${LQS.band}%`, 6, 12);
+  g.textAlign = 'right'; g.fillStyle = lastI >= 0 ? '#26a69a' : '#ff5252'; g.font = 'bold 11px -apple-system,sans-serif';
+  g.fillText(`${lastI >= 0 ? '+' : ''}${(lastI * 100).toFixed(1)}%`, w - 6, 13);
+}
+function renderLqStats() {
+  const box = $('#lqStats'), cur = LQ.cur; if (!box) return;
+  if (!cur) { box.innerHTML = '<div class="p-3 mute" style="font-size:12px">El heatmap se construye en vivo a partir de ahora: cada columna es una foto del libro de órdenes por segundo. Cuanto más claro el color, más liquidez hay en ese precio.</div>'; return; }
+  const bar = (B, A) => { const t = B + A, p = t ? B / t * 100 : 50; return `<div class="lq-bar"><div style="width:${p.toFixed(1)}%;background:var(--up)"></div><div style="flex:1;background:var(--down)"></div></div>`; };
+  const imbTxt = (B, A) => { const t = B + A, v = t ? (B - A) / t * 100 : 0; return `<b class="${v >= 0 ? 'up' : 'down'}">${v >= 0 ? '+' : ''}${v.toFixed(1)}%</b>`; };
+  let h = '<div class="lq-sec">Imbalance por distancia al precio <span class="mute">(toca una fila para seguirla en el gráfico)</span></div><div class="lq-tbl num">';
+  for (const x of cur.bands) h += `<button class="lq-row${x.b === LQS.band ? ' on' : ''}" data-band="${x.b}"><span>±${x.b}%</span><span class="up">${fmtK(x.B)}</span>${bar(x.B, x.A)}<span class="down">${fmtK(x.A)}</span>${imbTxt(x.B, x.A)}</button>`;
+  h += '</div>';
+  const tb = cur.bands.find(x => x.b === LQS.band) || cur.bands[cur.bands.length - 1];
+  if (tb) {
+    h += `<div class="lq-sec">Por exchange (±${tb.b}%) <span class="mute">— dónde está la liquidez</span></div><div class="lq-tbl num">`;
+    const rows = cur.ids.map(id => ({ id, B: tb.ex[id] ? tb.ex[id][0] : 0, A: tb.ex[id] ? tb.ex[id][1] : 0 })).sort((a, b) => (b.B + b.A) - (a.B + a.A));
+    const tot = rows.reduce((s, r) => s + r.B + r.A, 0) || 1;
+    for (const r of rows) { const x = LQ_EX.find(e => e.id === r.id); h += `<div class="lq-row"><span style="color:${x.color};font-weight:700">${x.label}</span><span class="up">${fmtK(r.B)}</span>${bar(r.B, r.A)}<span class="down">${fmtK(r.A)}</span><span class="mute">${((r.B + r.A) / tot * 100).toFixed(0)}%</span></div>`; }
+    h += '</div>';
+  }
+  // Muros más grandes y quién los pone
+  const R = LQS.R / 100, lo = Math.floor(cur.mid * (1 - R) / LQ.step) - cur.b0, hi = Math.ceil(cur.mid * (1 + R) / LQ.step) - cur.b0;
+  const top = side => { let best = null; for (let k = Math.max(0, lo); k <= Math.min(cur.nb - 1, hi); k++) { const v = side === 'b' ? cur.bid[k] : cur.ask[k]; if (v && (!best || v > best.v)) best = { k, v }; } return best; };
+  const wall = (wb, side) => {
+    if (!wb) return '';
+    const p = (wb.k + cur.b0 + 0.5) * LQ.step, dist = (p - cur.mid) / cur.mid * 100;
+    const by = cur.ids.map(id => ({ id, v: cur.per[id][wb.k] || 0 })).filter(x => x.v > 0).sort((a, b) => b.v - a.v).slice(0, 3)
+      .map(x => `${LQ_EX.find(e => e.id === x.id).label} ${(x.v / wb.v * 100).toFixed(0)}%`).join(', ');
+    return `<div class="lq-wall"><b class="${side === 'b' ? 'up' : 'down'}">${side === 'b' ? 'Mayor muro comprador' : 'Mayor muro vendedor'}</b> ${fmtK(wb.v)} en ${fmtN(p, guessPrec(p))} <span class="mute">(${dist >= 0 ? '+' : ''}${dist.toFixed(2)}%)</span><div class="mute" style="font-size:11px">${by}</div></div>`;
+  };
+  h += `<div class="lq-sec">Muros de liquidez (±${LQS.R}%)</div>` + wall(top('b'), 'b') + wall(top('a'), 'a');
+  if (tb) { const t = tb.B + tb.A, ratio = tb.A ? tb.B / tb.A : Infinity;
+    h += `<div class="lq-wall mute" style="font-size:12px">Dentro de ±${tb.b}% hay ${ratio >= 1 ? `<b class="up">${ratio === Infinity ? '∞' : ratio.toFixed(2)}×</b> más liquidez compradora que vendedora` : `<b class="down">${(1 / ratio).toFixed(2)}×</b> más liquidez vendedora que compradora`} (${fmtK(t)} en total). Las órdenes pueden retirarse antes de ejecutarse.</div>`; }
+  box.innerHTML = h;
+}
+function renderLqEx() {
+  const box = $('#lqEx'); if (!box) return;
+  box.innerHTML = LQ_EX.map(x => { const bk = LQ.books[x.id], st = !LQS.ex[x.id] ? 'off' : bk ? bk.st : 'wait';
+    const title = { live: 'Conectado', wait: 'Conectando…', err: 'Reconectando…', na: 'No disponible para este activo', off: 'Desactivado' }[st];
+    return `<button class="chip ag-chip${LQS.ex[x.id] ? ' on' : ''}" data-ex="${x.id}" title="${title}"><i class="ag-dot ${st}"></i>${x.label}</button>`; }).join('');
+}
+function renderLqRange() { $('#lqRange').innerHTML = LQ_RANGES.map(r => `<button class="chip${r === LQS.R ? ' on' : ''}" data-r="${r}">±${r}%</button>`).join(''); }
+async function lqResolve(txt) {
+  const q = txt.trim().toUpperCase().replace(/[^A-Z0-9.]/g, ''); if (!q) return null;
+  if (isHL(txt.trim())) return txt.trim();
+  await loadTickers();
+  if (S.tickers.has(q + 'USDT') || (S.known && S.known.has(q + 'USDT'))) return q;
+  await loadHL();
+  const m = [...HL.markets.values()].filter(x => x.name.toUpperCase() === q).sort((a, b) => b.qv - a.qv)[0];
+  return m ? m.s : q;
+}
+function openLiquidity() {
+  openModal('mLq'); S.lqOpen = true;
+  LQ.sym = isHL(S.symbol) ? S.symbol : baseOf(S.symbol);
+  lqStart();
+}
+function bindLiquidity() {
+  $('#btnLq').addEventListener('click', openLiquidity);
+  $('#lqEx').addEventListener('click', e => { const b = e.target.closest('[data-ex]'); if (!b) return; LQS.ex[b.dataset.ex] = !LQS.ex[b.dataset.ex]; save(); lqStart(); });
+  $('#lqRange').addEventListener('click', e => { const b = e.target.closest('[data-r]'); if (!b) return; LQS.R = +b.dataset.r; if (LQS.band > LQS.R) LQS.band = LQS.R; save(); lqStart(); });
+  $('#lqStats').addEventListener('click', e => { const b = e.target.closest('[data-band]'); if (!b) return; LQS.band = +b.dataset.band; save(); renderLqStats(); toast(`Imbalance del gráfico: ±${LQS.band}% (desde ahora)`, 'info', 1500); });
+  $('#lqTk').addEventListener('keydown', async e => { if (e.key !== 'Enter') return; e.preventDefault(); const s = await lqResolve(e.target.value); if (!s) return; LQ.sym = s; lqStart(); e.target.blur(); });
+  $('#lqUse').addEventListener('click', () => { LQ.sym = isHL(S.symbol) ? S.symbol : baseOf(S.symbol); lqStart(); });
+  window.addEventListener('resize', () => { if (LQ.on) lqDraw(); });
+}
+
+/* =====================================================================
  * 10. EVENTOS DE INTERFAZ
  * ===================================================================== */
 function bindUI() {
@@ -2436,13 +2916,13 @@ function bindUI() {
   // Pares
   $('#symQ').addEventListener('input', renderSymList);
   $('#symQ').addEventListener('keydown', e => { if (e.key === 'Enter') { const r = $('#symList [data-sym]'); if (r) { closeModal($('#mSym')); setSymbol(r.dataset.sym); } } });
-  $('#symQuotes').addEventListener('click', e => { const b = e.target.closest('[data-q]'); if (b) { S.quote = b.dataset.q; renderSymList(); save(); } });
+  $('#symQuotes').addEventListener('click', e => { const b = e.target.closest('[data-q]'); if (b) { S.quote = b.dataset.q; renderSymList(); updateSubs(); save(); } });
   $('#symList').addEventListener('click', e => {
     const r = e.target.closest('[data-sym]'); if (!r) return;
     if (S.symAdd || e.target.closest('[data-star]')) { wlToggle(r.dataset.sym); const st = r.querySelector('.star'); if (st) st.classList.toggle('on', wlHas(r.dataset.sym)); return; }
     closeModal($('#mSym')); if (S.wlOpen) closeModal($('#mWl')); setSymbol(r.dataset.sym);
   });
-  bindWatchlist(); bindAggr();
+  bindWatchlist(); bindAggr(); bindLiquidity();
   setInterval(() => { if (S.symOpen && S.symDirty) { S.symDirty = false; updateSymRows(); } }, 1000);
   setInterval(() => { if (S.wlOpen && S.wlDirty && !S.wlDrag) { S.wlDirty = false; if (S.wlSort) renderWl(); else updateWlRows(); } }, 600);
   setInterval(() => { if (Math.floor(Date.now() / 864e5) !== S.doDay) { fetchDayOpens([S.symbol]); if (S.wlOpen) fetchDayOpens(wlCur().syms); } }, 30000);   // nueva sesión diaria (00:00 UTC)
