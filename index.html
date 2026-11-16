@@ -110,6 +110,7 @@
   button.lq-row:hover{background:var(--hover)}.lq-row.on{background:rgba(41,98,255,.12);box-shadow:inset 3px 0 0 var(--accent)}
   .lq-bar{display:flex;height:6px;border-radius:3px;overflow:hidden}
   .lq-wall{padding:6px 12px;font-size:13px;line-height:1.45}
+  .lq-reach{display:grid;grid-template-columns:100px 1fr 1fr;gap:8px;padding:5px 12px;border-bottom:1px solid rgba(42,46,57,.5);text-align:right}.lq-reach>span:first-child{text-align:left}
   .lq-lv{position:relative;display:grid;grid-template-columns:1.2fr 1fr 0.9fr 0.9fr 64px;gap:6px;align-items:center;padding:3px 12px;font-size:12.5px;text-align:right;max-width:760px}
   .lq-lv>span{position:relative;z-index:1}.lq-lv>span:first-of-type{text-align:left;font-weight:600}
   .lq-lv .lq-depth{position:absolute;top:1px;bottom:1px;right:0;z-index:0}
@@ -347,6 +348,11 @@
     <button class="sh-x" data-close>✕</button>
   </div>
   <div class="flex gap-1.5 px-2 py-2 overflow-x-auto no-sb border-b border-line shrink-0"><div id="lqRange" class="flex gap-1.5"></div><span class="sep" style="align-self:center"></span><div id="lqEx" class="flex gap-1.5"></div></div>
+  <div id="lqCust" class="flex flex-wrap items-end gap-2 px-2 py-2 border-b border-line shrink-0" style="display:none">
+    <label class="fld" style="flex:1 1 110px">Desde (precio)<input id="lqLo" class="inp num" type="number" inputmode="decimal" placeholder="30000"></label>
+    <label class="fld" style="flex:1 1 110px">Hasta (precio)<input id="lqHi" class="inp num" type="number" inputmode="decimal" placeholder="130000"></label>
+    <button id="lqCustGo" class="btn acc">Ver rango</button>
+  </div>
   <div class="flex-1 overflow-y-auto min-h-0">
     <div id="lqTabs" class="flex border-b border-line"><button class="tab on" data-tab="heat">Heatmap</button><button class="tab" data-tab="book">Orderbook</button></div>
     <div id="lqHeatView">
@@ -2710,9 +2716,15 @@ const LQ_EX = [
   { id: 'BYBIT', label: 'Bybit Perp', color: '#ff9e2c' },
   { id: 'OKX', label: 'OKX Perp', color: '#e0e3eb' },
   { id: 'HL', label: 'Hyperliquid', color: '#50e3c2' },
+  { id: 'COINBASE', label: 'Coinbase', color: '#3d7bff' },
+  { id: 'BITSTAMP', label: 'Bitstamp', color: '#66bb6a' },
 ];
 const LQS = Object.assign({ ex: { BINANCE: true, BINANCE_F: true, BYBIT: true, OKX: true, HL: true }, R: 1, band: 1, tab: 'heat', grp: 1 }, saved.lq || {});
-const LQ_RANGES = [0.5, 1, 2, 5], LQ_BANDS = [0.1, 0.25, 0.5, 1, 2, 5];
+for (const x of LQ_EX) if (LQS.ex[x.id] === undefined) LQS.ex[x.id] = true;
+const LQ_RANGES = [0.5, 1, 2, 5, 10, 25, 50], LQ_BANDS = [0.1, 0.25, 0.5, 1, 2, 5, 10, 25, 50];
+// Ventana de precios visible: simétrica alrededor del precio (±R %) o personalizada (desde/hasta)
+const lqWin = mid => LQS.cust && LQS.cust.hi > LQS.cust.lo ? { lo: LQS.cust.lo, hi: LQS.cust.hi } : { lo: mid * (1 - LQS.R / 100), hi: mid * (1 + LQS.R / 100) };
+const lqWinLabel = () => LQS.cust && LQS.cust.hi > LQS.cust.lo ? `${fmtN(LQS.cust.lo, 0)}–${fmtN(LQS.cust.hi, 0)}` : `±${LQS.R}%`;
 const LQ = {
   on: false, gen: 0, sym: '', base: '', hl: false, books: {}, socks: {}, cols: [], cur: null, step: 0, timer: 0, nsig: null,
   hlSubs() { return this.on && LQS.ex.HL && this.hlCoin ? [{ type: 'l2Book', coin: this.hlCoin, nSigFigs: this.nsig }] : []; },
@@ -2810,10 +2822,38 @@ async function lqOkx() {
     },
   });
 }
+// Libros completos por REST: Coinbase (nivel 2 = libro agregado completo) y Bitstamp (profundidad total)
+function lqPoll(id, url, parse, every) {
+  const bk = LQ.books[id], gen = LQ.gen;
+  const run = async () => {
+    if (gen !== LQ.gen) return;
+    try {
+      const r = await fetch(url, { cache: 'no-store' });
+      if (r.status === 404 || r.status === 400) { bk.st = 'na'; renderLqEx(); return; }
+      const j = await r.json(); if (gen !== LQ.gen) return;
+      if (parse(j, bk) === false) { bk.st = 'na'; renderLqEx(); return; }
+      bk.ready = true; bk.fails = 0; if (bk.st !== 'live') { bk.st = 'live'; renderLqEx(); }
+    } catch (e) { bk.fails = (bk.fails || 0) + 1; if (!bk.ready) { bk.st = bk.fails >= 2 ? 'na' : 'err'; renderLqEx(); } }
+    if (bk.st !== 'na') LQ.socks[id] = { retry: setTimeout(run, every) };
+  };
+  run();
+}
+const lqLevels = arr => new Map(arr.filter(x => +x[1] > 0).map(x => [+x[0], +x[1]]));
+function lqCoinbase() {
+  lqPoll('COINBASE', `https://api.exchange.coinbase.com/products/${LQ.base}-USD/book?level=2`, (j, bk) => {
+    if (!j || !Array.isArray(j.bids)) return false; bk.bids = lqLevels(j.bids); bk.asks = lqLevels(j.asks || []);
+  }, 15000);
+}
+function lqBitstamp() {
+  lqPoll('BITSTAMP', `https://www.bitstamp.net/api/v2/order_book/${LQ.base.toLowerCase()}usd/`, (j, bk) => {
+    if (!j || !Array.isArray(j.bids)) return false; bk.bids = lqLevels(j.bids); bk.asks = lqLevels(j.asks || []);
+  }, 30000);
+}
 // Hyperliquid da 20 niveles por lado: se agrupan precios (nSigFigs) para cubrir el rango elegido
 function lqPickNsig(px) {
   if (!(px > 0)) return 3;
-  for (const n of [5, 4, 3, 2]) { const bucket = Math.pow(10, Math.floor(Math.log10(px)) - n + 1); if (20 * bucket >= px * LQS.R / 100) return n; }
+  const w = lqWin(px), half = Math.max(px - w.lo, w.hi - px);
+  for (const n of [5, 4, 3, 2]) { const bucket = Math.pow(10, Math.floor(Math.log10(px)) - n + 1); if (20 * bucket >= half) return n; }
   return 2;
 }
 
@@ -2834,6 +2874,8 @@ function lqStart() {
     if (LQS.ex.BINANCE_F) lqBinance('BINANCE_F', true);
     if (LQS.ex.BYBIT) lqBybit();
     if (LQS.ex.OKX) lqOkx();
+    if (LQS.ex.COINBASE) lqCoinbase();
+    if (LQS.ex.BITSTAMP) lqBitstamp();
   }
   updateHLSubs();
   $('#lqTk').value = dispSym(tk);
@@ -2850,15 +2892,18 @@ function lqStop() {
 function lqSample() {
   const ids = LQ_EX.map(x => x.id).filter(id => LQ.books[id] && LQ.books[id].ready && LQ.books[id].bids.size && LQ.books[id].asks.size);
   if (!ids.length) return lqDraw();
-  const pref = ['BINANCE_F', 'BINANCE', 'BYBIT', 'OKX', 'HL'].find(id => ids.includes(id)), pb = LQ.books[pref];
+  const pref = ['BINANCE_F', 'BINANCE', 'BYBIT', 'OKX', 'HL', 'COINBASE', 'BITSTAMP'].find(id => ids.includes(id)), pb = LQ.books[pref];
   const mid = (bestBid(pb) + bestAsk(pb)) / 2; if (!isNum(mid) || mid <= 0) return;
-  const R = LQS.R / 100, span = R * 1.6, lo = mid * (1 - span), hi = mid * (1 + span);
-  if (!LQ.step) LQ.step = niceStep(mid * 2 * R / 120);
+  const win = lqWin(mid), wd = win.hi - win.lo, lo = Math.max(0, win.lo - wd * 0.3), hi = win.hi + wd * 0.3;
+  if (!LQ.step) LQ.step = niceStep(wd / 160);
+  const span = Math.max(mid - lo, hi - mid) / mid;
   const step = LQ.step, b0 = Math.floor(lo / step), nb = Math.floor(hi / step) - b0 + 1;
   const tot = new Float32Array(nb), bid = new Float32Array(nb), ask = new Float32Array(nb), per = {};
   const bands = LQ_BANDS.filter(b => b / 100 <= span).map(b => ({ b, B: 0, A: 0, ex: {} }));
+  const reach = {};
   for (const id of ids) {
     const bk = LQ.books[id], arr = per[id] = new Float32Array(nb), lv = bands.map(() => [0, 0]);
+    let minB = Infinity, maxA = -Infinity; for (const p of bk.bids.keys()) if (p < minB) minB = p; for (const p of bk.asks.keys()) if (p > maxA) maxA = p; reach[id] = [minB, maxA];
     for (const [p, q] of bk.bids) { if (p < lo || p > mid) continue; const u = p * q, k = Math.floor(p / step) - b0; tot[k] += u; bid[k] += u; arr[k] += u; const d = (mid - p) / mid; bands.forEach((x, j) => { if (d <= x.b / 100) lv[j][0] += u; }); }
     for (const [p, q] of bk.asks) { if (p > hi || p < mid) continue; const u = p * q, k = Math.floor(p / step) - b0; tot[k] += u; ask[k] += u; arr[k] += u; const d = (p - mid) / mid; bands.forEach((x, j) => { if (d <= x.b / 100) lv[j][1] += u; }); }
     bands.forEach((x, j) => { x.B += lv[j][0]; x.A += lv[j][1]; x.ex[id] = lv[j]; });
@@ -2867,7 +2912,7 @@ function lqSample() {
   const imb = tb && tb.B + tb.A > 0 ? (tb.B - tb.A) / (tb.B + tb.A) : 0;
   LQ.cols.push({ t: Date.now(), b0, v: tot, mid, imb });
   if (LQ.cols.length > 1800) LQ.cols.shift();
-  LQ.cur = { b0, nb, bid, ask, per, mid, bands, ids };
+  LQ.cur = { b0, nb, bid, ask, per, mid, bands, ids, reach };
   lqDraw();
 }
 // Paleta del heatmap: azul oscuro → azul → cian → amarillo → blanco
@@ -2895,7 +2940,7 @@ function lqDraw() {
     g.fillStyle = '#787b86'; g.font = '13px -apple-system,sans-serif'; g.textAlign = 'center';
     g.fillText('Recopilando el libro de órdenes…', w / 2, h / 2); renderLqStats(); return;
   }
-  const R = LQS.R / 100, step = LQ.step, mid = cur.mid, binLo = Math.floor(mid * (1 - R) / step), binHi = Math.ceil(mid * (1 + R) / step), rows = binHi - binLo + 1;
+  const win = lqWin(cur.mid), step = LQ.step, mid = cur.mid, binLo = Math.floor(win.lo / step), binHi = Math.ceil(win.hi / step) - 1, rows = binHi - binLo + 1;
   const top = (binHi + 1) * step, bot = binLo * step, yOf = p => (top - p) / (top - bot) * h;
   // Heatmap (columnas = segundos, filas = tramos de precio)
   // columnas más anchas mientras hay poco historial; se estrechan a medida que se acumula
@@ -2931,7 +2976,8 @@ function lqDraw() {
   }
   walls.sort((a, b) => b.v - a.v);
   g.font = 'bold 10px -apple-system,sans-serif'; g.textAlign = 'right';
-  for (const wl of walls.slice(0, 4)) { g.fillStyle = '#fff'; g.fillText(fmtK(wl.v), px0 + profW - 3, wl.y + 3.5); g.fillStyle = wl.side === 'b' ? '#26a69a' : '#ff5252'; g.fillRect(x0 > 0 ? x0 : 0, wl.y, heatW - (x0 > 0 ? x0 : 0), 0.6); }
+  const drawn = [];
+  for (const wl of walls.slice(0, 6)) { if (drawn.length >= 4 || drawn.some(y => Math.abs(y - wl.y) < 13)) continue; drawn.push(wl.y); g.fillStyle = '#fff'; g.fillText(fmtK(wl.v), px0 + profW - 3, wl.y + 3.5); g.fillStyle = wl.side === 'b' ? '#26a69a' : '#ff5252'; g.fillRect(x0 > 0 ? x0 : 0, wl.y, heatW - (x0 > 0 ? x0 : 0), 0.6); }
   // Eje de precios
   g.fillStyle = '#131722'; g.fillRect(w - axisW, 0, axisW, h);
   g.fillStyle = '#b2b5be'; g.font = '10px -apple-system,sans-serif'; g.textAlign = 'left';
@@ -2972,7 +3018,7 @@ function renderLqStats() {
     h += '</div>';
   }
   // Muros más grandes y quién los pone
-  const R = LQS.R / 100, lo = Math.floor(cur.mid * (1 - R) / LQ.step) - cur.b0, hi = Math.ceil(cur.mid * (1 + R) / LQ.step) - cur.b0;
+  const wn = lqWin(cur.mid), lo = Math.floor(wn.lo / LQ.step) - cur.b0, hi = Math.ceil(wn.hi / LQ.step) - 1 - cur.b0;
   const top = side => { let best = null; for (let k = Math.max(0, lo); k <= Math.min(cur.nb - 1, hi); k++) { const v = side === 'b' ? cur.bid[k] : cur.ask[k]; if (v && (!best || v > best.v)) best = { k, v }; } return best; };
   const wall = (wb, side) => {
     if (!wb) return '';
@@ -2981,7 +3027,12 @@ function renderLqStats() {
       .map(x => `${LQ_EX.find(e => e.id === x.id).label} ${(x.v / wb.v * 100).toFixed(0)}%`).join(', ');
     return `<div class="lq-wall"><b class="${side === 'b' ? 'up' : 'down'}">${side === 'b' ? 'Mayor muro comprador' : 'Mayor muro vendedor'}</b> ${fmtK(wb.v)} en ${fmtN(p, guessPrec(p))} <span class="mute">(${dist >= 0 ? '+' : ''}${dist.toFixed(2)}%)</span><div class="mute" style="font-size:11px">${by}</div></div>`;
   };
-  h += `<div class="lq-sec">Muros de liquidez (±${LQS.R}%)</div>` + wall(top('b'), 'b') + wall(top('a'), 'a');
+  h += `<div class="lq-sec">Muros de liquidez (${lqWinLabel()})</div>` + wall(top('b'), 'b') + wall(top('a'), 'a');
+  // Hasta dónde llega el libro de cada exchange (la liquidez lejana solo puede venir de los que llegan hasta allí)
+  h += '<div class="lq-sec">Alcance de cada libro</div><div class="lq-tbl num" style="font-size:12px">' + cur.ids.map(id => {
+    const x = LQ_EX.find(e => e.id === id), [b, a] = cur.reach[id] || [], d = guessPrec(cur.mid) > 2 ? guessPrec(cur.mid) : 0;
+    return `<div class="lq-reach"><span style="color:${x.color};font-weight:700">${x.label}</span><span>${isNum(b) ? fmtN(b, d) : '—'} <span class="mute">(${isNum(b) ? ((b - cur.mid) / cur.mid * 100).toFixed(1) : '—'}%)</span></span><span>${isNum(a) ? fmtN(a, d) : '—'} <span class="mute">(+${isNum(a) ? ((a - cur.mid) / cur.mid * 100).toFixed(1) : '—'}%)</span></span></div>`;
+  }).join('') + '</div><div class="lq-wall mute" style="font-size:11px">Binance, Bybit y OKX solo publican los niveles cercanos al precio; Coinbase y Bitstamp dan el libro completo, y Hyperliquid agrupa los precios para cubrir el rango elegido.</div>';
   if (tb) { const t = tb.B + tb.A, ratio = tb.A ? tb.B / tb.A : Infinity;
     h += `<div class="lq-wall mute" style="font-size:12px">Dentro de ±${tb.b}% hay ${ratio >= 1 ? `<b class="up">${ratio === Infinity ? '∞' : ratio.toFixed(2)}×</b> más liquidez compradora que vendedora` : `<b class="down">${(1 / ratio).toFixed(2)}×</b> más liquidez vendedora que compradora`} (${fmtK(t)} en total). Las órdenes pueden retirarse antes de ejecutarse.</div>`; }
   box.innerHTML = h;
@@ -3031,7 +3082,7 @@ function renderLqBook() {
 function lqDepth(cur) {
   const { g, w, h } = lqCanvas($('#lqDepth')); g.fillStyle = '#0d111c'; g.fillRect(0, 0, w, h);
   if (!cur) return;
-  const R = LQS.R / 100, mid = cur.mid, lo = mid * (1 - R), hi = mid * (1 + R), xOf = p => (p - lo) / (hi - lo) * w;
+  const wn = lqWin(cur.mid), mid = cur.mid, lo = wn.lo, hi = wn.hi, xOf = p => (p - lo) / (hi - lo) * w;
   const pts = (side) => { const out = []; let acc = 0;
     if (side === 'b') { for (let k = Math.floor(mid / LQ.step) - cur.b0; k >= 0; k--) { const p = (k + cur.b0) * LQ.step; if (p < lo) break; acc += cur.bid[k] || 0; out.push([p, acc]); } }
     else { for (let k = Math.floor(mid / LQ.step) - cur.b0; k < cur.nb; k++) { const p = (k + cur.b0 + 1) * LQ.step; if (p > hi) break; acc += cur.ask[k] || 0; out.push([p, acc]); } }
@@ -3039,10 +3090,10 @@ function lqDepth(cur) {
   const B = pts('b'), A = pts('a'), mx = Math.max(B.length ? B[B.length - 1][1] : 0, A.length ? A[A.length - 1][1] : 0) || 1, yOf = v => h - 16 - v / mx * (h - 30);
   const area = (P, col, fill) => { if (!P.length) return; g.beginPath(); g.moveTo(xOf(mid), h - 16); for (const [p, v] of P) g.lineTo(xOf(p), yOf(v)); g.lineTo(xOf(P[P.length - 1][0]), h - 16); g.closePath(); g.fillStyle = fill; g.fill(); g.beginPath(); P.forEach(([p, v], i) => i ? g.lineTo(xOf(p), yOf(v)) : g.moveTo(xOf(p), yOf(v))); g.strokeStyle = col; g.lineWidth = 1.5; g.stroke(); };
   area(B, '#089981', 'rgba(8,153,129,.25)'); area(A, '#f23645', 'rgba(242,54,69,.25)');
-  g.fillStyle = 'rgba(255,255,255,.5)'; g.fillRect(xOf(mid), 0, 1, h - 16);
+  if (mid >= lo && mid <= hi) { g.fillStyle = 'rgba(255,255,255,.5)'; g.fillRect(xOf(mid), 0, 1, h - 16); }
   g.font = '10px -apple-system,sans-serif'; g.fillStyle = '#b2b5be'; const d = guessPrec(mid);
   g.textAlign = 'left'; g.fillText(fmtN(lo, d), 4, h - 4); g.textAlign = 'center'; g.fillText(fmtN(mid, d), xOf(mid), h - 4); g.textAlign = 'right'; g.fillText(fmtN(hi, d), w - 4, h - 4);
-  g.textAlign = 'left'; g.fillText(`Profundidad ±${LQS.R}% · máx ${fmtK(mx)}`, 6, 12);
+  g.textAlign = 'left'; g.fillText(`Profundidad ${lqWinLabel()} · máx ${fmtK(mx)}`, 6, 12);
 }
 function renderLqTab() {
   $$('#lqTabs .tab').forEach(t => t.classList.toggle('on', t.dataset.tab === LQS.tab));
@@ -3050,7 +3101,11 @@ function renderLqTab() {
   $('#lqBookView').style.display = LQS.tab === 'book' ? '' : 'none';
   lqDraw();
 }
-function renderLqRange() { $('#lqRange').innerHTML = LQ_RANGES.map(r => `<button class="chip${r === LQS.R ? ' on' : ''}" data-r="${r}">±${r}%</button>`).join(''); }
+function renderLqRange() {
+  const cust = !!(LQS.cust && LQS.cust.hi > LQS.cust.lo);
+  $('#lqRange').innerHTML = LQ_RANGES.map(r => `<button class="chip${!cust && r === LQS.R ? ' on' : ''}" data-r="${r}">±${r}%</button>`).join('') +
+    `<button class="chip${cust ? ' on' : ''}" data-r="cust">${cust ? lqWinLabel() : 'Personalizado'}</button>`;
+}
 async function lqResolve(txt) {
   const q = txt.trim().toUpperCase().replace(/[^A-Z0-9.]/g, ''); if (!q) return null;
   if (isHL(txt.trim())) return txt.trim();
@@ -3068,7 +3123,16 @@ function openLiquidity() {
 function bindLiquidity() {
   $('#btnLq').addEventListener('click', openLiquidity);
   $('#lqEx').addEventListener('click', e => { const b = e.target.closest('[data-ex]'); if (!b) return; LQS.ex[b.dataset.ex] = !LQS.ex[b.dataset.ex]; save(); lqStart(); });
-  $('#lqRange').addEventListener('click', e => { const b = e.target.closest('[data-r]'); if (!b) return; LQS.R = +b.dataset.r; if (LQS.band > LQS.R) LQS.band = LQS.R; save(); lqStart(); });
+  $('#lqRange').addEventListener('click', e => {
+    const b = e.target.closest('[data-r]'); if (!b) return;
+    if (b.dataset.r === 'cust') { const c = $('#lqCust'); c.style.display = c.style.display === 'none' ? '' : 'none'; if (LQS.cust) { $('#lqLo').value = LQS.cust.lo; $('#lqHi').value = LQS.cust.hi; } return; }
+    LQS.R = +b.dataset.r; LQS.cust = null; $('#lqCust').style.display = 'none'; if (LQS.band > LQS.R) LQS.band = LQS.R; save(); lqStart();
+  });
+  $('#lqCustGo').addEventListener('click', () => {
+    const lo = parseFloat($('#lqLo').value), hi = parseFloat($('#lqHi').value);
+    if (!(lo > 0 && hi > lo)) return toast('Indica un rango válido: «desde» menor que «hasta»', 'err');
+    LQS.cust = { lo, hi }; $('#lqCust').style.display = 'none'; save(); lqStart();
+  });
   $('#lqStats').addEventListener('click', e => { const b = e.target.closest('[data-band]'); if (!b) return; LQS.band = +b.dataset.band; save(); renderLqStats(); toast(`Imbalance del gráfico: ±${LQS.band}% (desde ahora)`, 'info', 1500); });
   $('#lqTk').addEventListener('keydown', async e => { if (e.key !== 'Enter') return; e.preventDefault(); const s = await lqResolve(e.target.value); if (!s) return; LQ.sym = s; lqStart(); e.target.blur(); });
   $('#lqTabs').addEventListener('click', e => { const t = e.target.closest('[data-tab]'); if (!t) return; LQS.tab = t.dataset.tab; save(); renderLqTab(); });
