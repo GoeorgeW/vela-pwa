@@ -4,7 +4,7 @@
  * - Datos de Binance (REST y WebSocket): siempre red, nunca se cachean.
  * Cambia VERSION al publicar una nueva versión para renovar la caché.
  */
-const VERSION = 'vela-v11';
+const VERSION = 'vela-v12';
 const SHELL = ['./', './index.html', './manifest.json', './icon-192.png', './icon-512.png'];
 const CDN = [
   'https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4.3.5/dist/index.global.js',
@@ -38,6 +38,15 @@ self.addEventListener('fetch', event => {
   const url = new URL(req.url);
   if (!/^https?:$/.test(url.protocol)) return;
   if (/binance/i.test(url.hostname)) return;               // datos en vivo: solo red
+  // Análisis del analista: red primero; sin conexión, la última copia
+  if (url.origin === self.location.origin && url.pathname.endsWith('/analista.json')) {
+    event.respondWith((async () => {
+      const cache = await caches.open(VERSION);
+      try { const res = await fetch(req.url, { cache: 'no-store' }); if (res.ok) cache.put('./analista.json', res.clone()); return res; }
+      catch (e) { return (await cache.match('./analista.json')) || Response.error(); }
+    })());
+    return;
+  }
 
   // Navegación: red primero para recibir actualizaciones; sin conexión, la copia en caché
   if (req.mode === 'navigate') {

@@ -202,6 +202,27 @@
   details.api summary{padding:8px 12px;cursor:pointer;color:var(--mute)}
   details.api pre{margin:0;padding:0 12px 10px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:11.5px;line-height:1.55;color:#b2b5be;white-space:pre-wrap}
 
+  /* Analista */
+  .an-sec{padding:12px;border-bottom:1px solid var(--line)}
+  .an-h{font-size:13px;font-weight:600;margin-bottom:8px;display:flex;align-items:center;gap:8px}
+  .an-h small{font-weight:400;color:var(--mute);font-size:11px}
+  .an-card{background:#1a1e29;border:1px solid var(--line);border-radius:8px;padding:10px;margin-bottom:8px}
+  .an-pill{display:inline-flex;align-items:center;gap:4px;height:24px;padding:0 9px;border-radius:12px;font-size:12px;font-weight:600}
+  .an-pill.up{background:rgba(8,153,129,.18);color:var(--up)}.an-pill.down{background:rgba(242,54,69,.18);color:var(--down)}.an-pill.flat{background:#2a2e39;color:var(--txt)}
+  .an-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:6px}
+  .an-kv{background:#1a1e29;border-radius:6px;padding:6px 8px;font-size:12px}.an-kv span{display:block;color:var(--mute);font-size:10.5px}
+  .an-bar{height:6px;border-radius:3px;background:#2a2e39;position:relative;overflow:hidden}
+  .an-bar i{position:absolute;left:0;top:0;bottom:0;border-radius:3px}
+  .an-mid{position:absolute;left:50%;top:-2px;bottom:-2px;width:1px;background:#555}
+  .an-row{display:grid;grid-template-columns:84px 1fr 40px;gap:8px;align-items:center;font-size:11.5px;margin:4px 0}
+  .an-list li{font-size:12.5px;line-height:1.45;margin:6px 0;padding-left:2px}
+  .an-tag{font-size:10px;padding:1px 6px;border-radius:8px;background:#2a2e39;margin-left:4px;white-space:nowrap}
+  .an-tag.up{background:rgba(8,153,129,.18)}.an-tag.down{background:rgba(242,54,69,.18)}
+  .an-warn{margin:10px 12px 0;padding:8px 10px;border-radius:6px;background:rgba(242,54,69,.1);border:1px solid rgba(242,54,69,.35);font-size:12px}
+  .an-note{padding:8px 12px;font-size:11px;color:var(--mute)}
+  table.an-t{width:100%;border-collapse:collapse;font-size:12px}table.an-t td,table.an-t th{padding:5px 4px;border-bottom:1px solid var(--line);text-align:right}
+  table.an-t th{color:var(--mute);font-weight:400}table.an-t td:first-child,table.an-t th:first-child{text-align:left}
+
   /* Avisos */
   #toasts{position:fixed;left:0;right:0;top:calc(96px + env(safe-area-inset-top));z-index:80;display:flex;flex-direction:column;align-items:center;gap:6px;pointer-events:none;padding:0 10px}
   .toast{max-width:460px;padding:9px 14px;border-radius:8px;background:#2a2e39;border:1px solid #363a45;color:#fff;font-size:13px;
@@ -249,6 +270,9 @@
       </button>
       <button id="btnLq" class="tb" title="Liquidez: heatmap y orderbook" aria-label="Liquidez">
         <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1.5" y="2" width="13" height="12" rx="1.5"/><path d="M4 5h3M4 8h6M4 11h4"/></svg><span class="hidden sm:inline">Liquidez</span>
+      </button>
+      <button id="btnAn" class="tb" title="Analista: predicciones, técnico, macro y sentimiento" aria-label="Analista">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><path d="M8 1.5l1.6 3.9 3.9 1.6-3.9 1.6L8 12.5 6.4 8.6 2.5 7l3.9-1.6z"/><path d="M13 11.5l.6 1.4 1.4.6-1.4.6-.6 1.4-.6-1.4-1.4-.6 1.4-.6z"/></svg><span class="hidden sm:inline">Analista</span>
       </button>
       <button id="btnInd" class="tb" title="Indicadores" aria-label="Indicadores">
         <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M1.5 11.5l3.5-5 3 3 3.5-6 3 4"/></svg><span class="hidden sm:inline">Indicadores</span>
@@ -337,6 +361,17 @@
   <div id="wlHead" class="wl-head num"></div>
   <div id="wlList" class="flex-1 overflow-y-auto"></div>
   <div class="px-3 py-2 text-mute border-t border-line" style="font-size:11px">Cambio desde la apertura diaria (00:00 UTC), igual que TradingView. Toca un símbolo para abrir su gráfico.</div>
+</div></div>
+
+<!-- ===== Analista ===== -->
+<div id="mAn" class="modal"><div class="sheet lg" style="max-width:900px">
+  <div class="sh-head">
+    <span>Analista</span>
+    <div id="anSym" class="flex gap-1.5"><button class="chip on" data-sym="BTC">BTC</button><button class="chip" data-sym="ETH">ETH</button></div>
+    <button id="anRefresh" class="btn sm" title="Actualizar">↻</button>
+    <button class="sh-x" data-close>✕</button>
+  </div>
+  <div id="anBody" class="flex-1 overflow-y-auto min-h-0 pb-6"></div>
 </div></div>
 
 <!-- ===== Liquidez ===== -->
@@ -1379,6 +1414,7 @@ async function loadMarket(prevSymbol) {
     setPx(S.symbol, bars[bars.length - 1].close);
     renderBars(true);
     el.loader.classList.remove('on');
+    anSyncLines();
     renderOrderInfo(); renderTrade(); fetchDayOpens([S.symbol]);
     if (isExt(S.symbol)) {
       const x = EXTM.get(S.symbol), n = bars.length; x.c = bars[n - 1].close; if (n > 1) x.o = bars[n - 2].close;
@@ -2079,6 +2115,7 @@ function closeModal(m) {
   if (m.id === 'mAg') { S.agOpen = false; AG.stop(); }
   if (m.id === 'mLq') { S.lqOpen = false; lqStop(); }
   if (m.id === 'mCfg') S.cfgUid = null;
+  if (m.id === 'mAn') S.anOpen = false;
 }
 
 /* ---------- Buscador de pares en vivo ---------- */
@@ -3296,6 +3333,172 @@ function bindUI() {
 /* =====================================================================
  * 11. ARRANQUE
  * ===================================================================== */
+
+/* =====================================================================
+ * ANALISTA: lee analista.json (lo publica cada hora el analista de Scalp)
+ * ===================================================================== */
+const AN = { data: null, t: 0, sym: 'BTC', tf: '1D', lines: [], show: (() => { try { return localStorage.getItem('vela-an-lines') !== '0'; } catch (e) { return true; } })() };
+const TF_ORDEN = ['1H', '4H', '1D', '1S', '1M'];
+const TF_NOMBRE = { '1H': 'Próxima hora', '4H': 'Próximas 4 horas', '1D': 'Próximas 24 horas', '1S': 'Próxima semana', '1M': 'Próximo mes' };
+const VIS_NOMBRE = { libro: 'Libro', tecnico: 'Técnico', derivados: 'Derivados', alcista: 'Alcista', bajista: 'Bajista', esceptico: 'Escéptico' };
+const anPct = (x, d = 0) => isNum(x) ? (x * 100).toFixed(d) + ' %' : '—';
+const anPx = x => isNum(x) ? fmtN(x, x < 100 ? 2 : 0) : '—';
+const anHora = (ms, conDia) => isNum(ms) ? new Date(ms).toLocaleString('es-ES', { timeZone: 'Europe/Madrid', hour: '2-digit', minute: '2-digit', ...(conDia ? { day: '2-digit', month: '2-digit' } : {}) }) : '—';
+const anHace = ms => { const m = Math.round((Date.now() - ms) / 60000); return m < 60 ? `hace ${m} min` : m < 2880 ? `hace ${Math.round(m / 60)} h` : `hace ${Math.round(m / 1440)} días`; };
+const anSymChart = () => { const b = String(baseOf(S.symbol) || '').toUpperCase(); return b === 'BTC' || b === 'ETH' ? b : null; };
+
+async function anLoad(force) {
+  if (!force && AN.data && Date.now() - AN.t < 5 * 60000) return AN.data;
+  try {
+    const r = await fetch('./analista.json?t=' + Date.now(), { cache: 'no-store' });
+    if (!r.ok) throw new Error(r.status);
+    AN.data = await r.json(); AN.t = Date.now();
+  } catch (e) { if (!AN.data) throw e; }
+  return AN.data;
+}
+async function openAnalista() {
+  openModal('mAn'); S.anOpen = true;
+  AN.sym = anSymChart() || AN.sym;
+  $$('#anSym [data-sym]').forEach(b => b.classList.toggle('on', b.dataset.sym === AN.sym));
+  $('#anBody').innerHTML = '<div class="an-note">Cargando análisis…</div>';
+  try { await anLoad(); renderAnalista(); } catch (e) { $('#anBody').innerHTML = '<div class="an-warn">No se pudo cargar el análisis. Comprueba la conexión e inténtalo de nuevo.</div>'; }
+}
+function anVisiones(v) {
+  return Object.keys(VIS_NOMBRE).map(k => {
+    const p = v ? v[k] : null;
+    if (!isNum(p)) return `<div class="an-row"><span class="mute">${VIS_NOMBRE[k]}</span><div class="an-bar"><span class="an-mid"></span></div><span class="mute num">—</span></div>`;
+    const col = p > 0.52 ? 'var(--up)' : p < 0.48 ? 'var(--down)' : '#787b86';
+    return `<div class="an-row"><span class="mute">${VIS_NOMBRE[k]}</span><div class="an-bar"><i style="width:${(p * 100).toFixed(1)}%;background:${col}"></i><span class="an-mid"></span></div><span class="num">${anPct(p)}</span></div>`;
+  }).join('');
+}
+function anPred(p) {
+  const dir = p.direccion, cls = dir === 'sube' ? 'up' : dir === 'baja' ? 'down' : 'flat';
+  const tit = dir === 'sube' ? `▲ Sube ${anPct(p.prob)}` : dir === 'baja' ? `▼ Baja ${anPct(p.prob)}` : `↔ Sin ventaja clara`;
+  const niveles = dir === 'lateral'
+    ? `<div class="mute" style="font-size:11.5px;margin-top:6px">Sube ${anPct(p.p_sube)} · baja ${anPct(1 - p.p_sube)} · rango tranquilo ${anPx(p.invalida)} – ${anPx(p.confirma)} (se queda dentro el ${anPct(p.prob)} de las veces)</div>`
+    : `<div class="an-grid" style="margin-top:8px"><div class="an-kv"><span>Objetivo</span><b class="num">${anPx(p.objetivo)}</b></div><div class="an-kv"><span>Confirma al pasar</span><b class="num">${anPx(p.confirma)}</b></div><div class="an-kv"><span>Se invalida en</span><b class="num">${anPx(p.invalida)}</b></div></div>`;
+  return `<div class="an-card"><div class="flex items-center gap-2 flex-wrap"><b style="font-size:13px">${TF_NOMBRE[p.tf] || p.tf}</b><span class="an-pill ${cls}">${tit}</span>
+    <span class="mute" style="font-size:11px;margin-left:auto">${anHora(p.t_ini, true)} → ${anHora(p.t_fin, p.tf !== '1H' && p.tf !== '4H')}</span></div>
+    ${niveles}
+    ${p.por_que ? `<div style="font-size:12.5px;line-height:1.45;margin-top:8px">💡 ${esc(p.por_que)}</div>` : ''}
+    <details style="margin-top:6px"><summary class="mute" style="font-size:11.5px;cursor:pointer">Las 6 visiones (probabilidad de que suba)</summary><div style="margin-top:6px">${anVisiones(p.visiones)}</div></details></div>`;
+}
+function anTecnico(m) {
+  const t = (m.tecnico || {})[AN.tf] || {}, i = t.indicadores, pr = m.precio;
+  const chips = ['1H', '4H', '1D', '1S'].map(k => `<button class="chip${k === AN.tf ? ' on' : ''}" data-antf="${k}">${k}</button>`).join('');
+  let ind = '<div class="mute" style="font-size:12px">Sin velas suficientes en este plazo.</div>';
+  if (i) {
+    const rsiTxt = !isNum(i.rsi) ? '' : i.rsi < 30 ? 'sobreventa' : i.rsi > 70 ? 'sobrecompra' : i.rsi < 45 ? 'débil' : i.rsi > 55 ? 'fuerte' : 'neutral';
+    const tend = isNum(i.ema20) && isNum(i.ema50) ? (i.ema20 > i.ema50 ? 'alcista (20 > 50)' : 'bajista (20 < 50)') : '—';
+    const bb = isNum(i.bb_sup) && isNum(i.bb_inf) ? Math.round((i.cierre - i.bb_inf) / (i.bb_sup - i.bb_inf) * 100) : null;
+    ind = `<div class="an-grid">
+      <div class="an-kv"><span>RSI 14</span><b class="num">${fmtN(i.rsi, 1)}</b> <small class="mute">${rsiTxt}</small></div>
+      <div class="an-kv"><span>Tendencia EMA</span><b>${tend}</b></div>
+      <div class="an-kv"><span>EMA 20 / 50</span><b class="num">${anPx(i.ema20)} / ${anPx(i.ema50)}</b></div>
+      <div class="an-kv"><span>MACD (histograma)</span><b class="num ${i.macd_hist > 0 ? 'up' : 'down'}">${fmtN(i.macd_hist, 1)}</b></div>
+      <div class="an-kv"><span>Bollinger</span><b class="num">${anPx(i.bb_inf)} – ${anPx(i.bb_sup)}</b> <small class="mute">${bb == null ? '' : bb + ' % del canal'}</small></div>
+      <div class="an-kv"><span>ATR (mov. típico por vela)</span><b class="num">${anPx(i.atr)}</b> <small class="mute">${isNum(pr) && isNum(i.atr) ? (i.atr / pr * 100).toFixed(2) + ' %' : ''}</small></div>
+      <div class="an-kv"><span>Máx / mín 20 velas</span><b class="num">${anPx(i.max20)} / ${anPx(i.min20)}</b></div></div>`;
+  }
+  const s = (t.senales || []).slice().sort((a, b) => Math.abs(b.z) - Math.abs(a.z));
+  const lista = s.length ? s.map(x => { const fuerte = Math.abs(x.z) >= 2, c = fuerte ? (x.p_sube > (t.base || .5) ? 'up' : 'down') : '';
+    return `<li>${esc(x.texto)} <span class="an-tag ${c}">subió ${anPct(x.p_sube)} de ${fmtN(x.n, 0)}</span>${fuerte ? '' : ' <span class="mute" style="font-size:11px">(sin ventaja demostrada)</span>'}</li>`; }).join('')
+    : '<li class="mute">Ninguna señal activa en este plazo.</li>';
+  return `<div class="an-sec"><div class="an-h">📊 Análisis técnico <div class="flex gap-1.5" id="anTf">${chips}</div></div>${ind}
+    <div class="an-h" style="margin-top:12px">Señales activas <small>acierto medido desde 2019 · base: subió el ${anPct(t.base)} de las veces</small></div><ul class="an-list">${lista}</ul></div>`;
+}
+function anLiquidez(m) {
+  const mp = m.mapa, lq = m.liquidaciones;
+  const zona = (z, c) => `<li><b class="num ${c}">${anPx(z.precio)}</b> <span class="mute">· ${fmtN(z.usd / 1e6, 1)} M$ · presente ${anPct(z.presencia)}</span></li>`;
+  let h = '<div class="an-sec"><div class="an-h">🗺️ Liquidez y liquidaciones';
+  h += `<label class="flex items-center gap-1.5" style="margin-left:auto;font-weight:400;font-size:12px"><input id="anLines" type="checkbox" ${AN.show ? 'checked' : ''} style="width:15px;height:15px;accent-color:#2962ff">Ver en el gráfico</label></div>`;
+  if (mp) {
+    h += `<div class="mute" style="font-size:11.5px;margin-bottom:6px">${mp.muestras} fotos del libro (${anHora(mp.desde, true)} – ${anHora(mp.hasta)}). Los libros llegan de ${anPx(mp.lo)} a ${anPx(mp.hi)}: fuera de ahí no hay datos.</div>`;
+    h += `<div class="grid grid-cols-1 sm:grid-cols-2 gap-2"><div><div style="font-size:12px">Arriba (resistencia / imán)</div><ul class="an-list">${(mp.arriba || []).map(z => zona(z, 'down')).join('') || '<li class="mute">—</li>'}</ul></div>
+      <div><div style="font-size:12px">Abajo (soporte / imán)</div><ul class="an-list">${(mp.abajo || []).map(z => zona(z, 'up')).join('') || '<li class="mute">—</li>'}</ul></div></div>`;
+  } else h += '<div class="mute" style="font-size:12px">Aún no hay mapa de liquidez.</div>';
+  if (lq) {
+    const l = a => (a || []).map(z => `${anPx(z.precio)} <span class="mute">(~${fmtN(z.usd / 1e6, 0)} M$)</span>`).join(' · ') || '—';
+    h += `<div style="font-size:12px;margin-top:8px">💥 Liquidaciones probables <span class="an-tag">estimación</span></div>
+      <div style="font-size:12.5px;margin-top:4px">Largos (si baja): ${l(lq.largos)}</div><div style="font-size:12.5px;margin-top:2px">Cortos (si sube): ${l(lq.cortos)}</div>`;
+  }
+  return h + '</div>';
+}
+function anEscenarios(m) {
+  const e = m.escenarios || {}, pr = m.precio;
+  const filas = ['1D', '1S', '1M'].filter(k => e[k]).map(k => { const x = e[k], up = x.p_sube_mas, dn = x.p_cae_mas, mid = isNum(up) && isNum(dn) ? 1 - up - dn : null;
+    return `<tr><td>${TF_NOMBRE[k]}</td><td class="up num">${anPct(up)}</td><td class="num">${anPct(mid)}</td><td class="down num">${anPct(dn)}</td><td class="num">${anPx(x.rango80[0])} – ${anPx(x.rango80[1])}</td></tr>
+      <tr><td colspan="5" class="mute" style="font-size:10.5px;text-align:left">Movimiento típico ±${anPct(x.mov, 1)} (${anPx(pr * (1 - x.mov))} – ${anPx(pr * (1 + x.mov))}) · ${fmtN(x.n, 0)} casos${x.n < 100 ? ' · pocos casos: orientativo' : ''}</td></tr>`; }).join('');
+  return `<div class="an-sec"><div class="an-h">🎲 Escenarios <small>según lo que pasó desde 2019 en un mercado como el actual</small></div>
+    <table class="an-t"><tr><th></th><th>Sube más</th><th>Se queda</th><th>Cae más</th><th>Rango del 80 %</th></tr>${filas}</table></div>`;
+}
+function anContexto(c) {
+  if (!c) return '<div class="an-sec"><div class="an-h">🌍 Macro, noticias y sentimiento</div><div class="mute" style="font-size:12px">Sin datos todavía.</div></div>';
+  const fg = c.miedo_codicia;
+  let h = `<div class="an-sec"><div class="an-h">🌍 Macro, noticias y sentimiento <small>${anHace(c.t)}</small></div>`;
+  if (fg) {
+    const v = +fg.valor, col = v < 25 ? 'var(--down)' : v < 45 ? '#f7a600' : v < 55 ? '#787b86' : v < 75 ? '#8bc34a' : 'var(--up)';
+    h += `<div class="an-card"><div class="flex items-baseline gap-2"><span style="font-size:12px">Miedo y codicia</span><b style="font-size:22px;color:${col}" class="num">${v}</b><span style="color:${col};font-size:12px">${esc(fg.clase || '')}</span><span class="mute" style="font-size:11px;margin-left:auto">${esc(fg.fecha || '')}</span></div>
+      <div class="an-bar" style="margin-top:6px;height:8px;background:linear-gradient(90deg,#f23645,#f7a600,#787b86,#8bc34a,#089981)"><span style="position:absolute;top:-3px;bottom:-3px;width:3px;background:#fff;left:calc(${v}% - 1px)"></span></div>
+      ${fg.nota ? `<div class="mute" style="font-size:11px;margin-top:6px">${esc(fg.nota)}</div>` : ''}</div>`;
+  }
+  if (c.resumen) h += `<div style="font-size:12.5px;line-height:1.45;margin-bottom:6px">${esc(c.resumen)}</div>`;
+  const item = x => { const imp = x.impacto || '', cl = imp === 'alcista' ? 'up' : imp === 'bajista' ? 'down' : '';
+    const src = x.fuente ? (x.url ? ` <a href="${esc(x.url)}" target="_blank" rel="noopener" class="mute" style="font-size:11px;text-decoration:underline">${esc(x.fuente)}</a>` : ` <span class="mute" style="font-size:11px">${esc(x.fuente)}</span>`) : '';
+    return `<li>${esc(x.texto || '')}${imp ? `<span class="an-tag ${cl}">${esc(imp)}</span>` : ''}${src}</li>`; };
+  for (const [k, t] of [['macro', 'Macro'], ['cripto', 'Cripto'], ['agenda', 'Agenda']]) if ((c[k] || []).length) h += `<div style="font-size:12px;margin-top:8px">${t}</div><ul class="an-list">${c[k].map(item).join('')}</ul>`;
+  if (c.rrss) h += `<div style="font-size:12px;margin-top:8px">Redes sociales</div><ul class="an-list"><li>${esc(c.rrss.texto || '')}${c.rrss.tono ? `<span class="an-tag">${esc(c.rrss.tono)}</span>` : ''}</li></ul>`;
+  return h + '<div class="mute" style="font-size:11px;margin-top:6px">El contexto se muestra pero aún no cambia las probabilidades: primero se mide si acierta.</div></div>';
+}
+function anRendimiento(m) {
+  const r = m.rendimiento || {}, ks = TF_ORDEN.filter(k => r[k]);
+  const filas = ks.map(k => `<tr><td>${k}</td><td class="num">${r[k].n}</td><td class="num">${anPct(r[k].acierto)}</td><td class="num">${fmtN(r[k].brier, 3)}</td><td class="num">${fmtN(r[k].brier_persist, 3)}</td></tr>`).join('');
+  return `<div class="an-sec"><div class="an-h">🎯 Cómo va acertando el analista</div>${ks.length ? `<table class="an-t"><tr><th>Plazo</th><th>Cerradas</th><th>Acierto</th><th>Brier</th><th>Repetir último</th></tr>${filas}</table>
+    <div class="mute" style="font-size:11px;margin-top:6px">Brier: 0 es perfecto y 0,250 es tirar una moneda. Si el del analista no baja de 0,250 no aporta nada. Hacen falta 30 casos por plazo para fiarse.</div>` : '<div class="mute" style="font-size:12px">Todavía no hay predicciones cerradas.</div>'}</div>`;
+}
+function renderAnalista() {
+  const d = AN.data, m = d && d.monedas && d.monedas[AN.sym];
+  if (!m) { $('#anBody').innerHTML = '<div class="an-warn">No hay análisis para esta moneda.</div>'; return; }
+  const viejo = Date.now() - d.t > 2 * 3600000;
+  let h = viejo ? `<div class="an-warn">⚠️ Análisis desactualizado (${anHace(d.t)}).</div>` : '';
+  h += `<div class="an-sec"><div class="flex items-baseline gap-2 flex-wrap"><b style="font-size:18px" class="num">${anPx(m.precio)}</b><span class="mute" style="font-size:12px">${AN.sym} · régimen <b class="text-txt">${esc(m.regimen || '—')}</b> · 72 h <span class="${m.ret72 > 0 ? 'up' : m.ret72 < 0 ? 'down' : ''}">${anPct(m.ret72, 1)}</span></span>
+    <span class="mute" style="font-size:11px;margin-left:auto">Datos ${anHora(m.t_dato, true)} · análisis ${anHace(d.t)}</span></div>
+    ${(m.avisos || []).map(a => `<div class="mute" style="font-size:11px;margin-top:4px">⚠️ ${esc(a)}</div>`).join('')}</div>`;
+  const preds = TF_ORDEN.map(k => (m.predicciones || {})[k]).filter(Boolean);
+  h += `<div class="an-sec"><div class="an-h">🧭 Hacia dónde va <small>probabilidades medidas con datos desde 2019</small></div>${preds.map(anPred).join('') || '<div class="mute" style="font-size:12px">Sin predicciones vigentes.</div>'}</div>`;
+  h += anTecnico(m) + anLiquidez(m) + anEscenarios(m) + anContexto(d.contexto) + anRendimiento(m);
+  h += `<div class="an-note">${esc(d.aviso || 'Estimaciones estadísticas. No son garantía ni recomendación de inversión.')}</div>`;
+  $('#anBody').innerHTML = h;
+  anSyncLines();
+}
+/* Zonas de liquidez y liquidaciones como líneas sobre el gráfico (solo BTC y ETH) */
+function anSyncLines() {
+  if (!candle) return;
+  for (const l of AN.lines) { try { candle.removePriceLine(l); } catch (e) {} }
+  AN.lines = [];
+  const b = anSymChart(), m = b && AN.show && AN.data && AN.data.monedas && AN.data.monedas[b];
+  if (!m) return;
+  const add = (price, color, title, style) => isNum(price) && AN.lines.push(candle.createPriceLine({ price, color, lineWidth: 1, lineStyle: style, axisLabelVisible: true, title }));
+  const mp = m.mapa || {};
+  for (const z of (mp.arriba || []).slice(0, 2)) add(z.precio, 'rgba(242,54,69,.75)', `Liquidez ${fmtN(z.usd / 1e6, 0)}M`, LC.LineStyle.Solid);
+  for (const z of (mp.abajo || []).slice(0, 2)) add(z.precio, 'rgba(8,153,129,.75)', `Liquidez ${fmtN(z.usd / 1e6, 0)}M`, LC.LineStyle.Solid);
+  const lq = m.liquidaciones || {};
+  for (const z of (lq.largos || []).slice(0, 1)) add(z.precio, 'rgba(247,166,0,.8)', 'Liq. largos', LC.LineStyle.Dotted);
+  for (const z of (lq.cortos || []).slice(0, 1)) add(z.precio, 'rgba(247,166,0,.8)', 'Liq. cortos', LC.LineStyle.Dotted);
+  const p = (m.predicciones || {})['1D'];
+  if (p && p.direccion !== 'lateral') { add(p.objetivo, 'rgba(41,98,255,.9)', 'Objetivo 1D', LC.LineStyle.Dashed); add(p.invalida, 'rgba(120,123,134,.9)', 'Invalida 1D', LC.LineStyle.Dashed); }
+}
+function bindAnalista() {
+  $('#btnAn').addEventListener('click', openAnalista);
+  $('#anRefresh').addEventListener('click', async () => { $('#anRefresh').disabled = true; try { await anLoad(true); renderAnalista(); toast('Análisis actualizado', 'ok', 1500); } catch (e) { toast('No se pudo actualizar', 'err'); } $('#anRefresh').disabled = false; });
+  $('#anSym').addEventListener('click', e => { const b = e.target.closest('[data-sym]'); if (!b) return; AN.sym = b.dataset.sym; $$('#anSym [data-sym]').forEach(x => x.classList.toggle('on', x === b)); renderAnalista(); });
+  $('#anBody').addEventListener('click', e => { const b = e.target.closest('[data-antf]'); if (!b) return; AN.tf = b.dataset.antf; renderAnalista(); });
+  $('#anBody').addEventListener('change', e => { if (e.target.id !== 'anLines') return; AN.show = e.target.checked; try { localStorage.setItem('vela-an-lines', AN.show ? '1' : '0'); } catch (x) {} anSyncLines(); });
+  // Líneas en el gráfico aunque el panel esté cerrado; se refrescan cada 10 min
+  const tick = () => anLoad().then(anSyncLines).catch(() => {});
+  setTimeout(tick, 2500); setInterval(tick, 10 * 60000);
+}
+
 function boot() {
   if (!window.LightweightCharts) { $('#fatal').style.display = 'flex'; return; }
   for (const id of ['px', 'chg', 'h24', 'l24', 'v24', 'dot', 'statusTxt', 'symLabel', 'loader', 'lgMain', 'lgInds', 'lgToggle', 'stats', 'hdEq', 'hdPnl', 'oInfo', 'tContent', 'trade', 'tradeBody', 'tradeCaret']) el[id] = document.getElementById(id);
@@ -3307,7 +3510,7 @@ function boot() {
   for (const i of list) { try { addIndicator(i.type, i.params, { colors: i.colors, hidden: i.hidden }, true); } catch (e) { console.warn(e); } }
   S.scripts = (Array.isArray(saved.scripts) ? saved.scripts : []).filter(s => s && typeof s.code === 'string').map(s => ({ id: String(s.id), name: String(s.name || 'Script'), code: s.code, enabled: !!s.enabled }));
   for (const s of POPULAR) S.tickers.set(s, { s, c: null, o: null, qv: 0 });
-  bindUI();
+  bindUI(); bindAnalista();
   layoutPanes(); renderLegend(); setPanel(S.panelOpen); renderTrade(); renderOrderInfo();
   Feed.connect();
   loadMarket();
