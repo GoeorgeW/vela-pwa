@@ -1,9 +1,9 @@
 {
  "version": "1.1",
- "t": 1795653529280,
+ "t": 1795657114488,
  "aviso": "Estimaciones estadísticas. No son garantía ni recomendación de inversión.",
  "contexto": {
-  "t": 1795653524333,
+  "t": 1795657111034,
   "fuente": "alternative.me (índice de miedo y codicia, automático). Sin noticias: ya no se buscan con IA.",
   "miedo_codicia": {
    "valor": 11,
@@ -16,10 +16,10 @@
  },
  "monedas": {
   "BTC": {
-   "precio": 60688.1,
-   "t_dato": 1795653360000,
+   "precio": 60635.8,
+   "t_dato": 1795657020000,
    "regimen": "lateral",
-   "ret72": -0.013182560418027456,
+   "ret72": -0.013231629351286411,
    "avisos": [],
    "predicciones": {
     "1S": {
@@ -172,6 +172,48 @@
       }
      ]
     },
+    "1H": {
+     "tf": "1H",
+     "t": 1795657114274,
+     "t_ini": 1795658400000,
+     "t_fin": 1795662000000,
+     "direccion": "baja",
+     "prob": 0.556,
+     "p_sube": 0.444,
+     "objetivo": 60516.84,
+     "confirma": 60588.21,
+     "invalida": 60707.18,
+     "ref": 60635.8,
+     "visiones": {
+      "libro": 0.5046,
+      "tecnico": 0.4844,
+      "derivados": 0.5032,
+      "esceptico": 0.5032,
+      "alcista": 0.5046,
+      "bajista": 0.4812
+     },
+     "por_que": "Apunta a bajada por: la última vela cerró al alza (históricamente subió el 48 % de 19.972 veces); histograma MACD positivo (históricamente subió el 49 % de 19.563 veces). El libro de órdenes está equilibrado.",
+     "senales": [
+      {
+       "senal": "ema20<ema50",
+       "p_sube": 0.5054860933911712,
+       "n": 19593,
+       "fiable": false
+      },
+      {
+       "senal": "macd>0",
+       "p_sube": 0.4875031944799387,
+       "n": 19563,
+       "fiable": true
+      },
+      {
+       "senal": "ultima_sube",
+       "p_sube": 0.48122559327125264,
+       "n": 19972,
+       "fiable": true
+      }
+     ]
+    },
     "4H": {
      "tf": "4H",
      "t": 1795649933411,
@@ -219,63 +261,21 @@
        "fiable": false
       }
      ]
-    },
-    "1H": {
-     "tf": "1H",
-     "t": 1795653528986,
-     "t_ini": 1795654800000,
-     "t_fin": 1795658400000,
-     "direccion": "baja",
-     "prob": 0.562,
-     "p_sube": 0.438,
-     "objetivo": 60569.03,
-     "confirma": 60640.47,
-     "invalida": 60759.54,
-     "ref": 60688.1,
-     "visiones": {
-      "libro": 0.5049,
-      "tecnico": 0.4844,
-      "derivados": 0.5032,
-      "esceptico": 0.5032,
-      "alcista": 0.5049,
-      "bajista": 0.4812
-     },
-     "por_que": "Apunta a bajada por: la última vela cerró al alza (históricamente subió el 48 % de 19.972 veces); histograma MACD positivo (históricamente subió el 49 % de 19.563 veces). El libro de órdenes está equilibrado.",
-     "senales": [
-      {
-       "senal": "ema20<ema50",
-       "p_sube": 0.5054860933911712,
-       "n": 19593,
-       "fiable": false
-      },
-      {
-       "senal": "macd>0",
-       "p_sube": 0.4875031944799387,
-       "n": 19563,
-       "fiable": true
-      },
-      {
-       "senal": "ultima_sube",
-       "p_sube": 0.48122559327125264,
-       "n": 19972,
-       "fiable": true
-      }
-     ]
     }
    },
    "tecnico": {
     "1H": {
      "indicadores": {
-      "vela": "2026-11-25 23:00:00+00:00",
-      "cierre": 60432.7,
-      "rsi": 62.3482,
-      "ema20": 59533.694,
-      "ema50": 59760.9552,
-      "macd_hist": 238.7312,
-      "bb_sup": 60641.2323,
-      "bb_inf": 57781.7177,
-      "atr": 645.7515,
-      "max20": 60544.3,
+      "vela": "2026-11-26 00:00:00+00:00",
+      "cierre": 60503.9,
+      "rsi": 63.0803,
+      "ema20": 59626.0945,
+      "ema50": 59790.0902,
+      "macd_hist": 236.2757,
+      "bb_sup": 60818.848,
+      "bb_inf": 57734.802,
+      "atr": 690.9193,
+      "max20": 61620.0,
       "min20": 57257.8
      },
      "senales": [
@@ -458,60 +458,60 @@
    },
    "mapa": {
     "muestras": 1441,
-    "desde": 1795567080000,
-    "hasta": 1795653480000,
-    "lo": 52049.20392441212,
-    "hi": 66978.68273038996,
+    "desde": 1795570680000,
+    "hasta": 1795657080000,
+    "lo": 52004.34878204901,
+    "hi": 67088.26401434776,
     "arriba": [],
     "abajo": [
      {
-      "precio": 60310.45261365542,
-      "usd": 16488504.797665369,
-      "presencia": 0.5350451075641915
+      "precio": 60258.47806392171,
+      "usd": 17783395.075255103,
+      "presencia": 0.5440666204024983
      },
      {
-      "precio": 60160.0524824493,
-      "usd": 16976191.796766743,
-      "presencia": 0.600971547536433
+      "precio": 60108.20754505907,
+      "usd": 16023023.05326087,
+      "presencia": 0.6384455239417072
      },
      {
-      "precio": 60010.02741391451,
-      "usd": 13985875.44225352,
-      "presencia": 0.7390700902151284
+      "precio": 58919.45580817483,
+      "usd": 22589910.032534245,
+      "presencia": 0.8105482303955587
      }
     ]
    },
    "liquidaciones": {
     "desde": 1795037460000,
-    "hasta": 1795653420000,
-    "oi": 1888346541.0,
-    "oi_nuevo": 2385214098.0,
+    "hasta": 1795657020000,
+    "oi": 1898102728.0,
+    "oi_nuevo": 2404609310.0,
     "largos": [
      {
-      "precio": 58169.05602204311,
-      "usd": 110064561.99999997
+      "precio": 58118.92689244517,
+      "usd": 104995500.89999998
      },
      {
-      "precio": 57020.07300531205,
-      "usd": 99033834.19999999
+      "precio": 57255.78872050991,
+      "usd": 112016060.39999999
      },
      {
-      "precio": 54517.15867710289,
-      "usd": 104230448.0
+      "precio": 54470.17669218637,
+      "usd": 83553837.5
      }
     ],
     "cortos": [
      {
-      "precio": 61143.82922769848,
-      "usd": 30634189.599999994
+      "precio": 61091.13648779382,
+      "usd": 30398534.19999999
      },
      {
-      "precio": 64592.08639152187,
-      "usd": 31437697.2
+      "precio": 63577.97606425732,
+      "usd": 28367492.400000006
      },
      {
-      "precio": 67221.43928949718,
-      "usd": 31986511.0
+      "precio": 65183.39963122972,
+      "usd": 38289822.699999996
      }
     ]
    },
@@ -522,8 +522,8 @@
      "p_sube_mas": 0.2515451174289246,
      "p_cae_mas": 0.2484548825710754,
      "rango80": [
-      59051.95159158325,
-      62425.06648355245
+      59001.0615971982,
+      62371.26959458922
      ]
     },
     "1S": {
@@ -532,8 +532,8 @@
      "p_sube_mas": 0.272,
      "p_cae_mas": 0.228,
      "rango80": [
-      56480.96943531055,
-      66126.88733029152
+      56432.29507078989,
+      66069.90027339941
      ]
     },
     "1M": {
@@ -542,17 +542,17 @@
      "p_sube_mas": 0.3125,
      "p_cae_mas": 0.1875,
      "rango80": [
-      50737.307185267324,
-      77754.96290266649
+      50693.58261379797,
+      77687.95496272754
      ]
     }
    },
    "rendimiento": {
     "1H": {
-     "n": 152,
-     "acierto": 0.3223684210526316,
-     "brier": 0.2489762035526316,
-     "brier_persist": 0.25040680171052626
+     "n": 153,
+     "acierto": 0.3202614379084967,
+     "brier": 0.249169645620915,
+     "brier_persist": 0.25026351542483655
     },
     "4H": {
      "n": 38,
@@ -569,10 +569,10 @@
    }
   },
   "ETH": {
-   "precio": 1699.99,
-   "t_dato": 1795653420000,
+   "precio": 1697.59,
+   "t_dato": 1795656960000,
    "regimen": "lateral",
-   "ret72": -0.01838184096922435,
+   "ret72": -0.013763920857455147,
    "avisos": [],
    "predicciones": {
     "1S": {
@@ -731,6 +731,54 @@
       }
      ]
     },
+    "1H": {
+     "tf": "1H",
+     "t": 1795657114484,
+     "t_ini": 1795658400000,
+     "t_fin": 1795662000000,
+     "direccion": "baja",
+     "prob": 0.5559,
+     "p_sube": 0.4441,
+     "objetivo": 1693.27,
+     "confirma": 1695.86,
+     "invalida": 1700.18,
+     "ref": 1697.59,
+     "visiones": {
+      "libro": 0.5043,
+      "tecnico": 0.4814,
+      "derivados": 0.505,
+      "esceptico": 0.505,
+      "alcista": 0.505,
+      "bajista": 0.4814
+     },
+     "por_que": "Apunta a bajada por: tres velas seguidas al alza (históricamente subió el 49 % de 3.555 veces); la última vela cerró al alza (históricamente subió el 49 % de 16.796 veces); histograma MACD positivo (históricamente subió el 49 % de 16.435 veces). El libro de órdenes está equilibrado.",
+     "senales": [
+      {
+       "senal": "ema20<ema50",
+       "p_sube": 0.5064369900271986,
+       "n": 16543,
+       "fiable": false
+      },
+      {
+       "senal": "macd>0",
+       "p_sube": 0.4910263430066314,
+       "n": 16435,
+       "fiable": true
+      },
+      {
+       "senal": "ultima_sube",
+       "p_sube": 0.4903559947612811,
+       "n": 16796,
+       "fiable": true
+      },
+      {
+       "senal": "3_suben",
+       "p_sube": 0.48636491425358447,
+       "n": 3555,
+       "fiable": true
+      }
+     ]
+    },
     "4H": {
      "tf": "4H",
      "t": 1795649933904,
@@ -772,63 +820,21 @@
        "fiable": false
       }
      ]
-    },
-    "1H": {
-     "tf": "1H",
-     "t": 1795653529276,
-     "t_ini": 1795654800000,
-     "t_fin": 1795658400000,
-     "direccion": "baja",
-     "prob": 0.5602,
-     "p_sube": 0.4398,
-     "objetivo": 1695.67,
-     "confirma": 1698.26,
-     "invalida": 1702.58,
-     "ref": 1699.99,
-     "visiones": {
-      "libro": 0.5052,
-      "tecnico": 0.4907,
-      "derivados": 0.505,
-      "esceptico": 0.505,
-      "alcista": 0.5052,
-      "bajista": 0.4904
-     },
-     "por_que": "Apunta a bajada por: la última vela cerró al alza (históricamente subió el 49 % de 16.796 veces); histograma MACD positivo (históricamente subió el 49 % de 16.435 veces). El libro de órdenes está equilibrado.",
-     "senales": [
-      {
-       "senal": "ema20<ema50",
-       "p_sube": 0.5064369900271986,
-       "n": 16543,
-       "fiable": false
-      },
-      {
-       "senal": "macd>0",
-       "p_sube": 0.4910263430066314,
-       "n": 16435,
-       "fiable": true
-      },
-      {
-       "senal": "ultima_sube",
-       "p_sube": 0.4903559947612811,
-       "n": 16796,
-       "fiable": true
-      }
-     ]
     }
    },
    "tecnico": {
     "1H": {
      "indicadores": {
-      "vela": "2026-11-25 23:00:00+00:00",
-      "cierre": 1691.76,
-      "rsi": 60.4571,
-      "ema20": 1670.5099,
-      "ema50": 1677.3184,
-      "macd_hist": 6.3136,
-      "bb_sup": 1700.0837,
-      "bb_inf": 1620.9813,
-      "atr": 20.2753,
-      "max20": 1698.38,
+      "vela": "2026-11-26 00:00:00+00:00",
+      "cierre": 1696.76,
+      "rsi": 62.342,
+      "ema20": 1673.0099,
+      "ema50": 1678.0809,
+      "macd_hist": 6.2534,
+      "bb_sup": 1705.1093,
+      "bb_inf": 1619.6407,
+      "atr": 21.697,
+      "max20": 1729.68,
       "min20": 1607.68
      },
      "senales": [
@@ -852,6 +858,13 @@
        "p_sube": 0.488,
        "n": 31976,
        "z": -6.1
+      },
+      {
+       "senal": "3_suben",
+       "texto": "tres velas seguidas al alza",
+       "p_sube": 0.479,
+       "n": 6918,
+       "z": -4.2
       }
      ],
      "base": 0.505
@@ -1025,60 +1038,60 @@
    },
    "mapa": {
     "muestras": 1441,
-    "desde": 1795567080000,
-    "hasta": 1795653480000,
-    "lo": 1461.6429579260187,
-    "hi": 1862.1998351358409,
+    "desde": 1795570680000,
+    "hasta": 1795657080000,
+    "lo": 1459.5794498471344,
+    "hi": 1859.5708316685698,
     "arriba": [],
     "abajo": [
      {
-      "precio": 1693.634901315658,
-      "usd": 6960622.935868755,
-      "presencia": 0.9306037473976405
+      "precio": 1691.2438732724593,
+      "usd": 9392853.419897586,
+      "presencia": 0.9486467730742539
      },
      {
-      "precio": 1689.4113728834495,
-      "usd": 10096086.015930485,
-      "presencia": 0.9583622484385843
+      "precio": 1687.0263075037,
+      "usd": 10974108.68987796,
+      "presencia": 0.9666897987508675
      },
      {
-      "precio": 1685.198376941097,
-      "usd": 10649218.061702128,
-      "presencia": 0.9784871616932685
+      "precio": 1682.819259355312,
+      "usd": 10656122.830802603,
+      "presencia": 0.9597501734906315
      }
     ]
    },
    "liquidaciones": {
     "desde": 1795037460000,
-    "hasta": 1795653420000,
-    "oi": 1086404683.0,
-    "oi_nuevo": 1508051809.0,
+    "hasta": 1795657020000,
+    "oi": 1104868402.0,
+    "oi_nuevo": 1528762437.0,
     "largos": [
      {
-      "precio": 1662.2605147482677,
-      "usd": 57085883.50000001
+      "precio": 1659.9137802172436,
+      "usd": 54012485.800000004
      },
      {
-      "precio": 1629.4267500039227,
-      "usd": 59187539.99999999
+      "precio": 1635.2620011422741,
+      "usd": 55964129.0
      },
      {
-      "precio": 1527.1301058937113,
-      "usd": 54267987.6
+      "precio": 1579.1555565427032,
+      "usd": 52025671.69999999
      }
     ],
     "cortos": [
      {
-      "precio": 1747.2687369586852,
-      "usd": 15362587.100000001
+      "precio": 1744.8019901138796,
+      "usd": 16373276.300000004
      },
      {
-      "precio": 1809.3481414762248,
-      "usd": 19200555.0
+      "precio": 1815.8277213666356,
+      "usd": 18169250.6
      },
      {
-      "precio": 1864.3116316405099,
-      "usd": 15076709.399999999
+      "precio": 1870.9880450299092,
+      "usd": 17615247.0
      }
     ]
    },
@@ -1089,8 +1102,8 @@
      "p_sube_mas": 0.2653817642698295,
      "p_cae_mas": 0.23424759080800592,
      "rango80": [
-      1640.9290576056994,
-      1771.5953656039464
+      1638.612438250142,
+      1769.094275081385
      ]
     },
     "1S": {
@@ -1099,8 +1112,8 @@
      "p_sube_mas": 0.2835820895522388,
      "p_cae_mas": 0.21393034825870647,
      "rango80": [
-      1527.7441908521207,
-      1907.8441760466917
+      1525.5873628366353,
+      1905.150733130844
      ]
     },
     "1M": {
@@ -1109,17 +1122,17 @@
      "p_sube_mas": 0.275,
      "p_cae_mas": 0.225,
      "rango80": [
-      1395.569682679922,
-      2371.717182578464
+      1393.5994550677408,
+      2368.368856271728
      ]
     }
    },
    "rendimiento": {
     "1H": {
-     "n": 152,
-     "acierto": 0.28289473684210525,
-     "brier": 0.2514581561842105,
-     "brier_persist": 0.2508706943421053
+     "n": 153,
+     "acierto": 0.28104575163398693,
+     "brier": 0.25191883986928104,
+     "brier_persist": 0.2509624943137255
     },
     "4H": {
      "n": 38,
